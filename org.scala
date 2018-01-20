@@ -30,6 +30,8 @@ def execute(): Unit = {
 }
 
 object CmdLineUtils {
+  import io.StdIn._
+
   val Usage =
     """
       |Usage:
@@ -37,19 +39,56 @@ object CmdLineUtils {
       |  org update member [id] [field] [value]
       |  org update member [id] add|remove [field] [value] #For multi-value fields
       |  org remove member [id]
+      |  org get member [id]
+      |  org find member [field] [value]
     """.stripMargin
 
+  private case class IndexedValue(index: Int, value: String)
+
   def promptForValue(field: Field): String = {
-    import io.StdIn._
-    if (field.multiValue)
-      readLine(s"Please enter '|' separated values for ${field.name}: ")
-    else
-      readLine(s"Please enter a value for ${field.name}: ")
+    val prompt =
+      if (field.multiValue)
+        s"Please enter '|' separated values for ${field.name}: "
+      else
+        s"Please enter a value for ${field.name}: "
+
+    val validValues =
+      if (field.teamRef)
+        Teams.data.ids
+      else if (field.titleRef)
+        Titles.data.ids
+      else
+        Nil
+
+    val value = readLine(prompt)
+    if (validValues.nonEmpty && !validValues.contains(value)) {
+      val validValueLookup = validValues.zipWithIndex.map { vv => IndexedValue(vv._2+1, vv._1) }
+
+      val indexPrompt =
+        s"""
+           |Invalid value. Choose from:
+           |  ${validValueLookup.map { v => s"${v.index}: ${v.value}" }.mkString("\n")}
+        """.stripMargin
+
+      promptForIndexedValue(indexPrompt, validValueLookup)
+    } else {
+      value
+    }
+  }
+
+  private def promptForIndexedValue(indexPrompt: String, validValueLookup: Seq[IndexedValue]): String = {
+    val index = readLine(indexPrompt).toInt
+
+    validValueLookup.find { _.index == index }.map(_.value).getOrElse {
+      promptForIndexedValue(indexPrompt, validValueLookup)
+    }
   }
 }
 
 object Members {
   private val CsvFile = "members.csv"
+
+  lazy val data = CsvHelper.read(CsvFile)
 
   def add(id: String): Unit = {
     val memberFields = CsvHelper.readHeader(CsvFile)
@@ -77,7 +116,19 @@ object Members {
   }
 }
 
-case class Field(name: String, multiValue: Boolean, id: Boolean) {
+object Titles {
+  private val CsvFile = "titles.csv"
+
+  lazy val data = CsvHelper.read(CsvFile)
+}
+
+object Teams {
+  private val CsvFile = "teams.csv"
+
+  lazy val data = CsvHelper.read(CsvFile)
+}
+
+case class Field(name: String, multiValue: Boolean, id: Boolean, titleRef: Boolean, teamRef: Boolean) {
   override def toString = {
     if (multiValue)
       name + " " + Field.MultiValueIndicator
@@ -95,15 +146,40 @@ object Field {
   def apply(value: String): Field = {
     val multiValueIndicatorIndex = value.toLowerCase.indexOf(MultiValueIndicator)
     val idIndicatorIndex = value.toLowerCase.indexOf(IdIndicator)
+    val name = value.split("(").head.trim
 
-    Field(value.split("(").head.trim, multiValue = multiValueIndicatorIndex != -1, id = idIndicatorIndex != -1)
+    Field(
+      name = name,
+      multiValue = multiValueIndicatorIndex != -1,
+      id = idIndicatorIndex != -1,
+      titleRef = name == "Title",
+      teamRef = name == "Team"
+    )
   }
 }
 
 type Header = Seq[Field]
 type Row = Seq[String]
 
-case class Csv(header: Header, rows: Seq[Row])
+case class Csv(header: Header, rows: Seq[Row]) {
+  private val idFieldIndex = header.indexWhere(_.id)
+
+  val ids: Seq[String] = rows.map { _.apply(idFieldIndex) }
+
+  // Returns the row with the given id
+  def get(id: String): Option[Row] = {
+    rows.find { _.apply(idFieldIndex) == id }
+  }
+
+  // Returns the id of all matching rows
+  def find(field: String, value: String): Seq[String] = {
+    val fieldIndex = header.indexWhere(_.name == field)
+    if (fieldIndex == -1)
+      sys.error(s"No such field [$field]. Choose from [${header.map(_.name)}]")
+
+    rows.filter { _.apply(fieldIndex).contains(value) }.map { _.apply(idFieldIndex) }
+  }
+}
 
 object CsvHelper {
 
@@ -115,9 +191,7 @@ object CsvHelper {
 
   def write(filename: String, csv: Csv): Unit = {
     val header = csv.header.mkString(Separator)
-    val rows = csv.rows.map {
-      _.mkString(Separator)
-    }
+    val rows = csv.rows.map { _.mkString(Separator) }
 
     safelyWrite(filename, append = false, header +: rows)
   }
@@ -125,9 +199,7 @@ object CsvHelper {
   def readHeader(filename: String): Header = {
     safelyRead(filename) { lines =>
       if (lines.hasNext) {
-        parseLine(lines.next()).map {
-          Field.apply
-        }
+        parseLine(lines.next()).map { Field.apply }
       } else {
         sys.error(s"File $filename is missing a header")
       }
@@ -137,12 +209,8 @@ object CsvHelper {
   def read(filename: String): Csv = {
     safelyRead(filename) { lines =>
       if (lines.hasNext) {
-        val header = parseLine(lines.next()).map {
-          Field.apply
-        }
-        val entries = lines.map {
-          parseLine
-        }.toSeq
+        val header = parseLine(lines.next()).map { Field.apply }
+        val entries = lines.map { parseLine }.toSeq
         Csv(header, entries)
       } else {
         sys.error(s"File $filename is missing a header")
@@ -150,15 +218,15 @@ object CsvHelper {
     }
   }
 
+  // Closes the file after use
   private def safelyRead[T](filename: String)(f: Iterator[String] => T) = {
     val source = io.Source.fromFile(filename)
-    val attemptToProcess = Try {
-      f(source.getLines())
-    }
+    val attemptToProcess = Try { f(source.getLines()) }
     source.close()
     attemptToProcess.get
   }
 
+  // Closes the file after use
   private def safelyWrite(filename: String, append: Boolean, rows: Seq[String]): Unit = {
     var bw = new BufferedWriter(new FileWriter(filename, append))
     val attempt = Try {
@@ -169,9 +237,7 @@ object CsvHelper {
       bw.flush()
     }
 
-    Try {
-      bw.close()
-    }
+    Try { bw.close() }
 
     attempt.get
   }
