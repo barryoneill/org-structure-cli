@@ -86,32 +86,32 @@ object CmdLineUtils {
 }
 
 object Members {
-  private val CsvFile = "members.csv"
+  private val Filename = "members.csv"
 
-  lazy val data = CsvHelper.read(CsvFile)
+  def data: Csv = CsvHelper.read(Filename)
 
   def add(id: String): Unit = {
-    val memberFields = CsvHelper.readHeader(CsvFile)
-
-    val newRow = memberFields.map { field =>
+    val newRow = data.header.map { field =>
       if (field.id)
         id
       else
         CmdLineUtils.promptForValue(field)
     }
 
-    CsvHelper.addRow(CsvFile, newRow)
+    CsvHelper.addRow(Filename, newRow)
   }
 
-  def update(id: String, field: String, value: String) = {
-    println(s"Updating member $id: field $field -> $value")
+  def update(id: String, field: String, value: String): Unit = {
+    val newData = data.updateRowField(id, field, value)
+    CsvHelper.write(Filename, newData)
   }
 
-  def update(id: String, action: String, field: String, value: String) = {
-    println(s"Updating member $id: multi-value field $field -> $value")
+  def update(id: String, action: String, field: String, value: String): Unit = {
+    val newData = data.updateRowMultiValueField(id, action, field, value)
+    CsvHelper.write(Filename, newData)
   }
 
-  def remove(id: String) = {
+  def remove(id: String): Unit = {
     println(s"Removing member $id")
   }
 }
@@ -128,7 +128,7 @@ object Teams {
   lazy val data = CsvHelper.read(CsvFile)
 }
 
-case class Field(name: String, multiValue: Boolean, id: Boolean, titleRef: Boolean, teamRef: Boolean) {
+case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, titleRef: Boolean, teamRef: Boolean) {
   override def toString = {
     if (multiValue)
       name + " " + Field.MultiValueIndicator
@@ -143,12 +143,13 @@ object Field {
   private val MultiValueIndicator = "(m)"
   private val IdIndicator = "(id)"
 
-  def apply(value: String): Field = {
+  def apply(index: Int, value: String): Field = {
     val multiValueIndicatorIndex = value.toLowerCase.indexOf(MultiValueIndicator)
     val idIndicatorIndex = value.toLowerCase.indexOf(IdIndicator)
     val name = value.split("(").head.trim
 
     Field(
+      index = index,
       name = name,
       multiValue = multiValueIndicatorIndex != -1,
       id = idIndicatorIndex != -1,
@@ -159,25 +160,64 @@ object Field {
 }
 
 type Header = Seq[Field]
-type Row = Seq[String]
+case class Row(index: Int, values: Seq[String]) {
+  def value(fieldIndex: Int): String = {
+    values.apply(fieldIndex)
+  }
+}
 
 case class Csv(header: Header, rows: Seq[Row]) {
   private val idFieldIndex = header.indexWhere(_.id)
 
-  val ids: Seq[String] = rows.map { _.apply(idFieldIndex) }
+  val ids: Seq[String] = rows.map { _.value(idFieldIndex) }
 
   // Returns the row with the given id
-  def get(id: String): Option[Row] = {
-    rows.find { _.apply(idFieldIndex) == id }
+  def getRow(id: String): Row = {
+    rows.find { _.value(idFieldIndex) == id }.getOrElse {
+      sys.error(s"Unknown id [$id]")
+    }
+  }
+
+  private def getField(fieldName: String): Field = {
+    header.find { _.name == fieldName }.getOrElse {
+      sys.error(s"No such field [$fieldName]. Choose from [${header.map(_.name)}]")
+    }
   }
 
   // Returns the id of all matching rows
-  def find(field: String, value: String): Seq[String] = {
-    val fieldIndex = header.indexWhere(_.name == field)
-    if (fieldIndex == -1)
-      sys.error(s"No such field [$field]. Choose from [${header.map(_.name)}]")
+  def findRows(fieldName: String, value: String): Seq[String] = {
+    val fieldIndex = getField(fieldName).index
+    rows.filter { _.value(fieldIndex).contains(value) }.map { _.value(idFieldIndex) }
+  }
 
-    rows.filter { _.apply(fieldIndex).contains(value) }.map { _.apply(idFieldIndex) }
+  def updateRowField(id: String, fieldName: String, value: String): Csv = {
+    val oldRow = getRow(id)
+    val fieldIndex = getField(fieldName).index
+    val newRowValues = oldRow.values.patch(fieldIndex, Seq(value), 1)
+    val newRow = oldRow.copy(values = newRowValues)
+    val newRows = rows.patch(oldRow.index, Seq(newRow), 1)
+
+    copy(rows = newRows)
+  }
+
+  def updateRowMultiValueField(id: String, action: String, fieldName: String, value: String): Csv = {
+    val oldRow = getRow(id)
+    val field = getField(fieldName)
+
+    require(field.multiValue, "This is not a multi-value field")
+
+    val oldValues = oldRow.value(field.index).split("|")
+    val newValues =
+      if (action == "add")
+        oldValues :+ value
+      else
+        oldValues.filterNot(_ == value)
+
+    val newRowValues = oldRow.values.patch(field.index, Seq(newValues.mkString("|")), 1)
+    val newRow = oldRow.copy(values = newRowValues)
+    val newRows = rows.patch(oldRow.index, Seq(newRow), 1)
+
+    copy(rows = newRows)
   }
 }
 
@@ -185,35 +225,29 @@ object CsvHelper {
 
   private val Separator = ","
 
-  def addRow(filename: String, newRow: Row): Unit = {
+  def addRow(filename: String, newRow: Seq[String]): Unit = {
     safelyWrite(filename, append = true, Seq(newRow.mkString(Separator)))
   }
 
   def write(filename: String, csv: Csv): Unit = {
     val header = csv.header.mkString(Separator)
-    val rows = csv.rows.map { _.mkString(Separator) }
+    val rows = csv.rows.map { _.values.mkString(Separator) }
 
     safelyWrite(filename, append = false, header +: rows)
-  }
-
-  def readHeader(filename: String): Header = {
-    safelyRead(filename) { lines =>
-      if (lines.hasNext) {
-        parseLine(lines.next()).map { Field.apply }
-      } else {
-        sys.error(s"File $filename is missing a header")
-      }
-    }
   }
 
   def read(filename: String): Csv = {
     safelyRead(filename) { lines =>
       if (lines.hasNext) {
-        val header = parseLine(lines.next()).map { Field.apply }
-        val entries = lines.map { parseLine }.toSeq
-        Csv(header, entries)
+        val header = parseLine(lines.next()).zipWithIndex.map {
+          case (value, index) => Field.apply(index, value)
+        }
+        val rows = lines.zipWithIndex.map {
+          case (line, index) => Row(index, parseLine(line))
+        }.toSeq
+        Csv(header, rows)
       } else {
-        sys.error(s"File $filename is missing a header")
+        sys.error(s"File [$filename] is missing a header")
       }
     }
   }
