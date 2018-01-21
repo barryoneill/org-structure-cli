@@ -118,7 +118,7 @@ object Members {
   def data: Csv = Csv.read(Filename)
 
   def add(id: String): Unit = {
-    val newRow = data.header.map { field =>
+    val newRow = data.header.fields.map { field =>
       if (field.id)
         id
       else
@@ -187,7 +187,12 @@ object Field {
   }
 }
 
-type Header = Seq[Field]
+case class Header(fields: Seq[Field]) {
+  val idField = fields.find(_.id).getOrElse {
+    sys.error("Header has no id field")
+  }
+}
+
 case class Row(index: Int, values: Seq[String]) {
   def value(fieldIndex: Int): String = {
     values.apply(fieldIndex)
@@ -195,27 +200,25 @@ case class Row(index: Int, values: Seq[String]) {
 }
 
 case class Csv(header: Header, rows: Seq[Row]) {
-  private val idFieldIndex = header.indexWhere(_.id)
-
-  val ids: Seq[String] = rows.map { _.value(idFieldIndex) }
+  val ids: Seq[String] = rows.map { _.value(header.idField.index) }
 
   // Returns the row with the given id
   def getRow(id: String): Row = {
-    rows.find { _.value(idFieldIndex) == id }.getOrElse {
+    rows.find { _.value(header.idField.index) == id }.getOrElse {
       sys.error(s"Unknown id [$id]")
     }
   }
 
   private def getField(fieldName: String): Field = {
-    header.find { _.name == fieldName }.getOrElse {
-      sys.error(s"No such field [$fieldName]. Choose from [${header.map(_.name)}]")
+    header.fields.find { _.name == fieldName }.getOrElse {
+      sys.error(s"No such field [$fieldName]. Choose from [${header.fields.map(_.name)}]")
     }
   }
 
   // Returns the id of all matching rows
   def findRows(fieldName: String, value: String): Seq[String] = {
     val fieldIndex = getField(fieldName).index
-    rows.filter { _.value(fieldIndex).contains(value) }.map { _.value(idFieldIndex) }
+    rows.filter { _.value(fieldIndex).contains(value) }.map { _.value(header.idField.index) }
   }
 
   def addRow(newRow: Seq[String]): Csv = {
@@ -252,7 +255,7 @@ object Csv {
   private val Separator = ","
 
   def write(filename: String, csv: Csv): Unit = {
-    val header = csv.header.mkString(Separator)
+    val header = csv.header.fields.mkString(Separator)
     val rows = csv.rows.map { _.values.mkString(Separator) }
 
     safelyWrite(filename, header +: rows)
@@ -261,9 +264,10 @@ object Csv {
   def read(filename: String): Csv = {
     safelyRead(filename) { lines =>
       if (lines.hasNext) {
-        val header = parseLine(lines.next()).zipWithIndex.map {
+        val headerFields = parseLine(lines.next()).zipWithIndex.map {
           case (value, index) => Field.apply(index, value)
         }
+        val header = Header(headerFields)
         val rows = lines.zipWithIndex.map {
           case (line, index) => Row(index, parseLine(line))
         }.toSeq
