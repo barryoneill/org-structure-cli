@@ -16,12 +16,12 @@ field are pipe delimitted.
 * A field name followed by '(id)' is considered the id field. There must be one
 id field in each file. Any field can be the id field but there can only be one
 per file and values in it must be unique. It cannot be multi-value.
-* A field called 'Title' indicates a reference to the id field in titles.csv. It
-cannot be multi-value.
-* A field called 'Team' indicates a reference to the id field in teams.csv. It
-cannot be multi-value.
-* A field called 'Member' indicates a reference to the id field in members.csv.
-It cannot be multi-value.
+* A field name followed by '(member)' indicates a reference to the id field in
+members.csv. It cannot be multi-value.
+* A field name followed by '(team)' indicates a reference to the id field in
+teams.csv. It cannot be multi-value.
+* A field name followed by '(title)' indicates a reference to the id field in
+titles.csv. It cannot be multi-value.
 
 
 ## Usage

@@ -156,12 +156,18 @@ object Teams {
   lazy val data = Csv.read(CsvFile)
 }
 
-case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, titleRef: Boolean, teamRef: Boolean) {
+case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, memberRef: Boolean, teamRef: Boolean, titleRef: Boolean) {
   override def toString = {
     if (multiValue)
       name + " " + Field.MultiValueIndicator
     else if (id)
       name + " " + Field.IdIndicator
+    else if (memberRef)
+      name + " " + Field.MemberRefIndicator
+    else if (teamRef)
+      name + " " + Field.TeamRefIndicator
+    else if (titleRef)
+      name + " " + Field.TitleRefIndicator
     else
       name
   }
@@ -170,10 +176,17 @@ case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, tit
 object Field {
   private val MultiValueIndicator = "(multi)"
   private val IdIndicator = "(id)"
+  private val MemberRefIndicator = "(member)"
+  private val TeamRefIndicator = "(team)"
+  private val TitleRefIndicator = "(title)"
 
   def apply(index: Int, value: String): Field = {
     val multiValueIndicatorIndex = value.toLowerCase.indexOf(MultiValueIndicator)
     val idIndicatorIndex = value.toLowerCase.indexOf(IdIndicator)
+    val memberRefIndicatorIndex = value.toLowerCase.indexOf(MemberRefIndicator)
+    val teamRefIndicatorIndex = value.toLowerCase.indexOf(TeamRefIndicator)
+    val titleRefIndicatorIndex = value.toLowerCase.indexOf(TitleRefIndicator)
+
     val name = value.split("(").head.trim
 
     Field(
@@ -181,8 +194,9 @@ object Field {
       name = name,
       multiValue = multiValueIndicatorIndex != -1,
       id = idIndicatorIndex != -1,
-      titleRef = name == "Title",
-      teamRef = name == "Team"
+      memberRef = memberRefIndicatorIndex != -1,
+      teamRef = teamRefIndicatorIndex != -1,
+      titleRef = titleRefIndicatorIndex != -1
     )
   }
 }
