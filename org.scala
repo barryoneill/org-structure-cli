@@ -115,7 +115,7 @@ case object MultiValueFieldRemove extends MultiValueFieldAction {
 object Members {
   private val Filename = "members.csv"
 
-  def data: Csv = CsvHelper.read(Filename)
+  def data: Csv = Csv.read(Filename)
 
   def add(id: String): Unit = {
     val newRow = data.header.map { field =>
@@ -125,17 +125,17 @@ object Members {
         CmdLineUtils.promptForValue(field)
     }
 
-    CsvHelper.addRow(Filename, newRow)
+    Csv.addRow(Filename, newRow)
   }
 
   def update(id: String, field: String, value: String): Unit = {
     val newData = data.updateRowField(id, field, value)
-    CsvHelper.write(Filename, newData)
+    Csv.write(Filename, newData)
   }
 
   def update(id: String, action: MultiValueFieldAction, field: String, value: String): Unit = {
     val newData = data.updateRowMultiValueField(id, action, field, value)
-    CsvHelper.write(Filename, newData)
+    Csv.write(Filename, newData)
   }
 
   def remove(id: String): Unit = {
@@ -146,13 +146,13 @@ object Members {
 object Titles {
   private val CsvFile = "titles.csv"
 
-  lazy val data = CsvHelper.read(CsvFile)
+  lazy val data = Csv.read(CsvFile)
 }
 
 object Teams {
   private val CsvFile = "teams.csv"
 
-  lazy val data = CsvHelper.read(CsvFile)
+  lazy val data = Csv.read(CsvFile)
 }
 
 case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, titleRef: Boolean, teamRef: Boolean) {
@@ -242,7 +242,7 @@ case class Csv(header: Header, rows: Seq[Row]) {
   }
 }
 
-object CsvHelper {
+object Csv {
 
   private val Separator = ","
 
