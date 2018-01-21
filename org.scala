@@ -125,7 +125,8 @@ object Members {
         CmdLineUtils.promptForValue(field)
     }
 
-    Csv.addRow(Filename, newRow)
+    val newData = data.addRow(newRow)
+    Csv.write(Filename, newData)
   }
 
   def update(id: String, field: String, value: String): Unit = {
@@ -217,6 +218,10 @@ case class Csv(header: Header, rows: Seq[Row]) {
     rows.filter { _.value(fieldIndex).contains(value) }.map { _.value(idFieldIndex) }
   }
 
+  def addRow(newRow: Seq[String]): Csv = {
+    copy(rows = rows :+ Row(rows.size, newRow))
+  }
+
   def updateRowField(id: String, fieldName: String, value: String): Csv = {
     val oldRow = getRow(id)
     val fieldIndex = getField(fieldName).index
@@ -246,15 +251,11 @@ object Csv {
 
   private val Separator = ","
 
-  def addRow(filename: String, newRow: Seq[String]): Unit = {
-    safelyWrite(filename, append = true, Seq(newRow.mkString(Separator)))
-  }
-
   def write(filename: String, csv: Csv): Unit = {
     val header = csv.header.mkString(Separator)
     val rows = csv.rows.map { _.values.mkString(Separator) }
 
-    safelyWrite(filename, append = false, header +: rows)
+    safelyWrite(filename, header +: rows)
   }
 
   def read(filename: String): Csv = {
@@ -282,8 +283,8 @@ object Csv {
   }
 
   // Closes the file after use
-  private def safelyWrite(filename: String, append: Boolean, rows: Seq[String]): Unit = {
-    var bw = new BufferedWriter(new FileWriter(filename, append))
+  private def safelyWrite(filename: String, rows: Seq[String]): Unit = {
+    var bw = new BufferedWriter(new FileWriter(filename, false))
     val attempt = Try {
       rows.foreach { row =>
         bw.write(row)
