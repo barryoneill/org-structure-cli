@@ -168,7 +168,7 @@ case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, tit
 }
 
 object Field {
-  private val MultiValueIndicator = "(m)"
+  private val MultiValueIndicator = "(multi)"
   private val IdIndicator = "(id)"
 
   def apply(index: Int, value: String): Field = {

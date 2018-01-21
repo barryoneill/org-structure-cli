@@ -11,11 +11,11 @@ Your org structure must be contained in the following three csv files:
 
 The first row of the file contains the field names. The following rules
 apply to the field names:
-* A field name followed by '(m)' is considered multi-value. Values in this
+* A field name followed by '(multi)' is considered multi-value. Values in this
 field are pipe delimitted.
-* A field name followed by '(id)' is considered the id field. Any field can
-be the id field but there can only be one per file and values in it must be
-unique. It cannot be multi-value.
+* A field name followed by '(id)' is considered the id field. There must be one
+id field in each file. Any field can be the id field but there can only be one
+per file and values in it must be unique. It cannot be multi-value.
 * A field called 'Title' indicates a reference to the id field in titles.csv. It
 cannot be multi-value.
 * A field called 'Team' indicates a reference to the id field in teams.csv. It
