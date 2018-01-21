@@ -21,7 +21,7 @@ def execute(): Unit = {
     case "update" :: "member" :: id :: field :: value :: Nil =>
       Members.update(id, field, value)
     case "update" :: "member" :: id :: action :: field :: value :: Nil =>
-      Members.update(id, action, field, value)
+      Members.update(id, MultiValueFieldAction(action), field, value)
     case "remove" :: "member" :: id :: Nil =>
       Members.remove(id)
     case _ =>
@@ -85,6 +85,33 @@ object CmdLineUtils {
   }
 }
 
+sealed trait MultiValueFieldAction {
+  val Delimiter = "|"
+  def update(currentValue: String, change: String): String
+}
+
+object MultiValueFieldAction {
+  def apply(value: String): MultiValueFieldAction = {
+    value match {
+      case "add" => MultiValueFieldAdd
+      case "remove" => MultiValueFieldRemove
+      case _ => sys.error(s"Unknown action [$value]")
+    }
+  }
+}
+
+case object MultiValueFieldAdd extends MultiValueFieldAction {
+  override def update(currentValue: String, change: String) = {
+    (currentValue.split(Delimiter) :+ change).mkString(Delimiter)
+  }
+}
+
+case object MultiValueFieldRemove extends MultiValueFieldAction {
+  override def update(currentValue: String, change: String) = {
+    currentValue.split(Delimiter).filterNot(_ == change).mkString(Delimiter)
+  }
+}
+
 object Members {
   private val Filename = "members.csv"
 
@@ -106,7 +133,7 @@ object Members {
     CsvHelper.write(Filename, newData)
   }
 
-  def update(id: String, action: String, field: String, value: String): Unit = {
+  def update(id: String, action: MultiValueFieldAction, field: String, value: String): Unit = {
     val newData = data.updateRowMultiValueField(id, action, field, value)
     CsvHelper.write(Filename, newData)
   }
@@ -200,20 +227,14 @@ case class Csv(header: Header, rows: Seq[Row]) {
     copy(rows = newRows)
   }
 
-  def updateRowMultiValueField(id: String, action: String, fieldName: String, value: String): Csv = {
+  def updateRowMultiValueField(id: String, action: MultiValueFieldAction, fieldName: String, value: String): Csv = {
     val oldRow = getRow(id)
     val field = getField(fieldName)
 
     require(field.multiValue, "This is not a multi-value field")
 
-    val oldValues = oldRow.value(field.index).split("|")
-    val newValues =
-      if (action == "add")
-        oldValues :+ value
-      else
-        oldValues.filterNot(_ == value)
-
-    val newRowValues = oldRow.values.patch(field.index, Seq(newValues.mkString("|")), 1)
+    val newValue = action.update(oldRow.value(field.index), value)
+    val newRowValues = oldRow.values.patch(field.index, Seq(newValue), 1)
     val newRow = oldRow.copy(values = newRowValues)
     val newRows = rows.patch(oldRow.index, Seq(newRow), 1)
 
