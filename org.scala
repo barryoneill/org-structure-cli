@@ -191,6 +191,8 @@ case class Header(fields: Seq[Field]) {
   val idField = fields.find(_.id).getOrElse {
     sys.error("Header has no id field")
   }
+
+  def field(fieldName: String): Option[Field] = fields.find { _.name == fieldName }
 }
 
 case class Row(index: Int, values: Seq[String]) {
@@ -210,7 +212,7 @@ case class Csv(header: Header, rows: Seq[Row]) {
   }
 
   private def getField(fieldName: String): Field = {
-    header.fields.find { _.name == fieldName }.getOrElse {
+    header.field(fieldName).getOrElse {
       sys.error(s"No such field [$fieldName]. Choose from [${header.fields.map(_.name)}]")
     }
   }

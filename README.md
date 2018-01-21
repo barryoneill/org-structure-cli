@@ -26,7 +26,7 @@ It cannot be multi-value.
 
 ## Usage
 
-To validate the structure of your files (i.e.that references are valid, ids are unique, etc):
+To validate the structure and integrity of your files (i.e.that references are valid, ids are unique, etc):
 `org validate`
 
 To add a new member:
