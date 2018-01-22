@@ -146,7 +146,8 @@ object Members {
   }
 
   def remove(id: String): Unit = {
-    println(s"Removing member $id")
+    val newData = data.removeRow(id)
+    Csv.write(Filename, newData)
   }
 }
 
@@ -251,16 +252,18 @@ case class Csv(header: Header, rows: Seq[Row]) {
     }
   }
 
-  val ids: Seq[String] = rows.map { _.value(header.idField.index) }
+  val ids: Seq[String] = rows.map { rowId }
+
+  def rowId(row: Row): String = row.value(header.idField.index)
 
   // Returns the row with the given id
-  def getRow(id: String): Row = {
-    rows.find { _.value(header.idField.index) == id }.getOrElse {
+  def row(id: String): Row = {
+    rows.find { rowId(_) == id }.getOrElse {
       sys.error(s"Unknown id [$id]")
     }
   }
 
-  def getField(fieldName: String): Field = {
+  def field(fieldName: String): Field = {
     header.field(fieldName).getOrElse {
       sys.error(s"No such field [$fieldName]. Choose from [${header.fields.map(_.name)}]")
     }
@@ -268,20 +271,24 @@ case class Csv(header: Header, rows: Seq[Row]) {
 
   // Returns the id of all matching rows
   def findRows(fieldName: String, value: String): Seq[String] = {
-    val fieldIndex = getField(fieldName).index
-    rows.filter { _.value(fieldIndex).contains(value) }.map { _.value(header.idField.index) }
+    val fieldIndex = field(fieldName).index
+    rows.filter { _.value(fieldIndex).contains(value) }.map { rowId }
   }
 
   def addRow(newRow: Seq[String]): Csv = {
     copy(rows = rows :+ Row(rows.size, newRow))
   }
 
-  def updateFieldValue(rowId: String, action: FieldAction, fieldName: String, change: String): Csv = {
-    val oldRow = getRow(rowId)
-    val field = getField(fieldName)
+  def removeRow(id: String): Csv = {
+    copy(rows = rows.filterNot(rowId(_) == id))
+  }
 
-    val newValue = action.update(oldRow.value(field.index), change)
-    val newRowValues = oldRow.values.patch(field.index, Seq(newValue), 1)
+  def updateFieldValue(rowId: String, action: FieldAction, fieldName: String, change: String): Csv = {
+    val oldRow = row(rowId)
+    val fieldToUpdate = field(fieldName)
+
+    val newValue = action.update(oldRow.value(fieldToUpdate.index), change)
+    val newRowValues = oldRow.values.patch(fieldToUpdate.index, Seq(newValue), 1)
     val newRow = oldRow.copy(values = newRowValues)
     val newRows = rows.patch(oldRow.index, Seq(newRow), 1)
 
