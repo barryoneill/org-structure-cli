@@ -27,24 +27,31 @@ titles.csv. It cannot be multi-value.
 ## Usage
 
 To validate the structure and integrity of your files (i.e.that references are valid, ids are unique, etc):
+
 `org validate`
 
 To add a new member:
+
 `org add member [id]`
 
 To update a member single-value field:
+
 `org update member [id] [field] [value]`
 
 To update a member multi-value field:
+
 `org update member [id] add|remove [field] [value]`
 
 To remove a member:
+
 `org remove member [id]`
 
 To fetch a member by id:
+
 `org get member [id]`
 
 To find a member using a substring match on a field value:
+
 `org find member [field] [value]`
 
 Each action will create a new commit with a consistent, easy to parse name. This allows
