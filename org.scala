@@ -89,39 +89,9 @@ object CmdLineUtils {
   }
 }
 
-sealed trait FieldAction {
-  def update(currentValue: String, change: String): String
-}
 
-case object Overwrite extends FieldAction {
-  override def update(currentValue: String, change: String) = change
-}
+// Org data
 
-sealed trait MultiValueFieldAction extends FieldAction {
-  val Delimiter = "|"
-}
-
-object MultiValueFieldAction {
-  def apply(value: String): MultiValueFieldAction = {
-    value match {
-      case "add" => MultiValueAdd
-      case "remove" => MultiValueRemove
-      case _ => sys.error(s"Unknown action [$value]")
-    }
-  }
-}
-
-case object MultiValueAdd extends MultiValueFieldAction {
-  override def update(currentValue: String, change: String) = {
-    (currentValue.split(Delimiter) :+ change).mkString(Delimiter)
-  }
-}
-
-case object MultiValueRemove extends MultiValueFieldAction {
-  override def update(currentValue: String, change: String) = {
-    currentValue.split(Delimiter).filterNot(_ == change).mkString(Delimiter)
-  }
-}
 
 object Members {
   private val Filename = "members.csv"
@@ -186,6 +156,44 @@ object Titles {
 
   def validate(): Unit = {
     Csv.read(Filename).validate()
+  }
+}
+
+
+// Csv models
+
+
+sealed trait FieldAction {
+  def update(currentValue: String, change: String): String
+}
+
+case object Overwrite extends FieldAction {
+  override def update(currentValue: String, change: String) = change
+}
+
+sealed trait MultiValueFieldAction extends FieldAction {
+  val Delimiter = "|"
+}
+
+object MultiValueFieldAction {
+  def apply(value: String): MultiValueFieldAction = {
+    value match {
+      case "add" => MultiValueAdd
+      case "remove" => MultiValueRemove
+      case _ => sys.error(s"Unknown action [$value]")
+    }
+  }
+}
+
+case object MultiValueAdd extends MultiValueFieldAction {
+  override def update(currentValue: String, change: String) = {
+    (currentValue.split(Delimiter) :+ change).mkString(Delimiter)
+  }
+}
+
+case object MultiValueRemove extends MultiValueFieldAction {
+  override def update(currentValue: String, change: String) = {
+    currentValue.split(Delimiter).filterNot(_ == change).mkString(Delimiter)
   }
 }
 
