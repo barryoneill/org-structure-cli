@@ -19,11 +19,15 @@ def execute(): Unit = {
     case "add" :: "member" :: id :: Nil =>
       Members.add(id)
     case "update" :: "member" :: id :: field :: value :: Nil =>
-      Members.update(id, field, value)
+      Members.update(id, Overwrite, field, value)
     case "update" :: "member" :: id :: action :: field :: value :: Nil =>
       Members.update(id, MultiValueFieldAction(action), field, value)
     case "remove" :: "member" :: id :: Nil =>
       Members.remove(id)
+    case "validate" :: Nil =>
+      Members.data.validate()
+      Teams.data.validate()
+      Titles.data.validate()
     case _ =>
       sys.error(CmdLineUtils.Usage)
   }
@@ -85,28 +89,35 @@ object CmdLineUtils {
   }
 }
 
-sealed trait MultiValueFieldAction {
-  val Delimiter = "|"
+sealed trait FieldAction {
   def update(currentValue: String, change: String): String
+}
+
+case object Overwrite extends FieldAction {
+  override def update(currentValue: String, change: String) = change
+}
+
+sealed trait MultiValueFieldAction extends FieldAction {
+  val Delimiter = "|"
 }
 
 object MultiValueFieldAction {
   def apply(value: String): MultiValueFieldAction = {
     value match {
-      case "add" => MultiValueFieldAdd
-      case "remove" => MultiValueFieldRemove
+      case "add" => MultiValueAdd
+      case "remove" => MultiValueRemove
       case _ => sys.error(s"Unknown action [$value]")
     }
   }
 }
 
-case object MultiValueFieldAdd extends MultiValueFieldAction {
+case object MultiValueAdd extends MultiValueFieldAction {
   override def update(currentValue: String, change: String) = {
     (currentValue.split(Delimiter) :+ change).mkString(Delimiter)
   }
 }
 
-case object MultiValueFieldRemove extends MultiValueFieldAction {
+case object MultiValueRemove extends MultiValueFieldAction {
   override def update(currentValue: String, change: String) = {
     currentValue.split(Delimiter).filterNot(_ == change).mkString(Delimiter)
   }
@@ -115,7 +126,7 @@ case object MultiValueFieldRemove extends MultiValueFieldAction {
 object Members {
   private val Filename = "members.csv"
 
-  def data: Csv = Csv.read(Filename)
+  def data: Csv = Csv(Filename)
 
   def add(id: String): Unit = {
     val newRow = data.header.fields.map { field =>
@@ -129,13 +140,8 @@ object Members {
     Csv.write(Filename, newData)
   }
 
-  def update(id: String, field: String, value: String): Unit = {
-    val newData = data.updateRowField(id, field, value)
-    Csv.write(Filename, newData)
-  }
-
-  def update(id: String, action: MultiValueFieldAction, field: String, value: String): Unit = {
-    val newData = data.updateRowMultiValueField(id, action, field, value)
+  def update(id: String, action: FieldAction, field: String, value: String): Unit = {
+    val newData = data.updateFieldValue(id, action, field, value)
     Csv.write(Filename, newData)
   }
 
@@ -144,16 +150,16 @@ object Members {
   }
 }
 
-object Titles {
-  private val CsvFile = "titles.csv"
-
-  lazy val data = Csv.read(CsvFile)
-}
-
 object Teams {
   private val CsvFile = "teams.csv"
 
-  lazy val data = Csv.read(CsvFile)
+  def data = Csv(CsvFile)
+}
+
+object Titles {
+  private val CsvFile = "titles.csv"
+
+  def data = Csv(CsvFile)
 }
 
 case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, memberRef: Boolean, teamRef: Boolean, titleRef: Boolean) {
@@ -202,9 +208,16 @@ object Field {
 }
 
 case class Header(fields: Seq[Field]) {
-  val idField = fields.find(_.id).getOrElse {
-    sys.error("Header has no id field")
+  // The header should have one and only one id field
+  val idField = fields.toList.filter(_.id) match {
+    case singleId :: Nil => singleId
+    case Nil => sys.error("Header has no id field")
+    case multipleIds => sys.error(s"Header has more than one id field [${multipleIds.map(_.name).mkString(",")}")
   }
+
+  val memberRefFields = fields.filter(_.memberRef)
+  val teamRefFields = fields.filter(_.teamRef)
+  val titleRefFields = fields.filter(_.titleRef)
 
   def field(fieldName: String): Option[Field] = fields.find { _.name == fieldName }
 }
@@ -216,6 +229,28 @@ case class Row(index: Int, values: Seq[String]) {
 }
 
 case class Csv(header: Header, rows: Seq[Row]) {
+
+  // Validate the integrity of the data
+  def validate(): Unit = {
+    rows.zipWithIndex.foreach {
+      case (row, index) =>
+        def validateRefs(refFields: Seq[Field], validValues: Seq[String]): Unit = {
+          refFields.foreach { refField =>
+            val ref = row.value(refField.index)
+            require(validValues.contains(ref), s"Invalid ref [$ref] in row [$index]")
+          }
+        }
+
+        // Validate that all rows have the correct number of fields
+        require(row.values.size == header.fields.size, s"Row [$index] does not have the same number of fields as the header")
+
+        // Check the integrity of references
+        validateRefs(header.memberRefFields, Members.data.ids)
+        validateRefs(header.teamRefFields, Teams.data.ids)
+        validateRefs(header.titleRefFields, Titles.data.ids)
+    }
+  }
+
   val ids: Seq[String] = rows.map { _.value(header.idField.index) }
 
   // Returns the row with the given id
@@ -225,7 +260,7 @@ case class Csv(header: Header, rows: Seq[Row]) {
     }
   }
 
-  private def getField(fieldName: String): Field = {
+  def getField(fieldName: String): Field = {
     header.field(fieldName).getOrElse {
       sys.error(s"No such field [$fieldName]. Choose from [${header.fields.map(_.name)}]")
     }
@@ -241,23 +276,11 @@ case class Csv(header: Header, rows: Seq[Row]) {
     copy(rows = rows :+ Row(rows.size, newRow))
   }
 
-  def updateRowField(id: String, fieldName: String, value: String): Csv = {
-    val oldRow = getRow(id)
-    val fieldIndex = getField(fieldName).index
-    val newRowValues = oldRow.values.patch(fieldIndex, Seq(value), 1)
-    val newRow = oldRow.copy(values = newRowValues)
-    val newRows = rows.patch(oldRow.index, Seq(newRow), 1)
-
-    copy(rows = newRows)
-  }
-
-  def updateRowMultiValueField(id: String, action: MultiValueFieldAction, fieldName: String, value: String): Csv = {
-    val oldRow = getRow(id)
+  def updateFieldValue(rowId: String, action: FieldAction, fieldName: String, change: String): Csv = {
+    val oldRow = getRow(rowId)
     val field = getField(fieldName)
 
-    require(field.multiValue, "This is not a multi-value field")
-
-    val newValue = action.update(oldRow.value(field.index), value)
+    val newValue = action.update(oldRow.value(field.index), change)
     val newRowValues = oldRow.values.patch(field.index, Seq(newValue), 1)
     val newRow = oldRow.copy(values = newRowValues)
     val newRows = rows.patch(oldRow.index, Seq(newRow), 1)
@@ -277,7 +300,7 @@ object Csv {
     safelyWrite(filename, header +: rows)
   }
 
-  def read(filename: String): Csv = {
+  def apply(filename: String): Csv = {
     safelyRead(filename) { lines =>
       if (lines.hasNext) {
         val headerFields = parseLine(lines.next()).zipWithIndex.map {
