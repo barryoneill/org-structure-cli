@@ -25,9 +25,12 @@ def execute(): Unit = {
     case "remove" :: "member" :: id :: Nil =>
       Members.remove(id)
     case "validate" :: Nil =>
-      Members.validate()
-      Teams.validate()
-      Titles.validate()
+      val membersData = Members.data
+      val teamsData = Teams.data
+      val titlesData = Titles.data
+      OrgData.validate(membersData, membersData.ids, teamsData.ids, titlesData.ids)
+      OrgData.validate(teamsData, membersData.ids, teamsData.ids, titlesData.ids)
+      OrgData.validate(titlesData, membersData.ids, teamsData.ids, titlesData.ids)
     case _ =>
       sys.error(CmdLineUtils.Usage)
   }
@@ -92,42 +95,21 @@ object CmdLineUtils {
 
 // Org data
 
+trait OrgData {
+  def filename: String
 
-object Members {
-  private val Filename = "members.csv"
+  def data: Csv
+}
 
-  def add(id: String): Unit = {
-    val currentData = Csv.read(Filename)
-    val newRow = currentData.header.fields.map { field =>
-      if (field.id)
-        id
-      else
-        CmdLineUtils.promptForValue(field)
-    }
-
-    val newData = currentData.addRow(newRow)
-    Csv.write(Filename, newData)
-  }
-
-  def update(id: String, action: FieldAction, field: String, value: String): Unit = {
-    val newData = Csv.read(Filename).updateFieldValue(id, action, field, value)
-    Csv.write(Filename, newData)
-  }
-
-  def remove(id: String): Unit = {
-    val newData = Csv.read(Filename).removeRow(id)
-    Csv.write(Filename, newData)
-  }
-
-  def validate(): Unit = {
-    val data = Csv.read(Filename)
-
+object OrgData {
+  def validate(data: Csv, validMembers: Seq[String], validTeams: Seq[String], validTitles: Seq[String]): Unit = {
     data.validate()
 
     // Check the integrity of references
     data.rows.foreach { row =>
-      validateRefs(row, data.header.teamRefFields, Teams.data.ids)
-      validateRefs(row, data.header.titleRefFields, Titles.data.ids)
+      validateRefs(row, data.header.memberRefFields, validMembers)
+      validateRefs(row, data.header.teamRefFields, validTeams)
+      validateRefs(row, data.header.titleRefFields, validTitles)
     }
   }
 
@@ -138,25 +120,51 @@ object Members {
     }
   }
 }
+trait ReadOnlyData extends OrgData {
+  // Read-only data can be read once
+  override lazy val data = Csv.read(filename)
+}
 
-object Teams {
-  private val Filename = "teams.csv"
+trait WriteableData extends OrgData {
+  // Writeable data must be read fresh each time
+  override def data = Csv.read(filename)
 
-  val data = Csv.read(Filename)
+  def add(id: String): Unit = {
+    val currentData = data
+    val newRow = currentData.header.fields.map { field =>
+      if (field.id)
+        id
+      else
+        CmdLineUtils.promptForValue(field)
+    }
 
-  def validate(): Unit = {
-    Csv.read(Filename).validate()
+    val newData = currentData.addRow(newRow)
+    Csv.write(filename, newData)
+  }
+
+  def update(id: String, action: FieldAction, field: String, value: String): Unit = {
+    val currentData = data
+    val newData = currentData.updateFieldValue(id, action, field, value)
+    Csv.write(filename, newData)
+  }
+
+  def remove(id: String): Unit = {
+    val currentData = data
+    val newData = currentData.removeRow(id)
+    Csv.write(filename, newData)
   }
 }
 
-object Titles {
-  private val Filename = "titles.csv"
+object Members extends WriteableData {
+  override val filename = "members.csv"
+}
 
-  val data = Csv.read(Filename)
+object Teams extends ReadOnlyData {
+  override val filename = "teams.csv"
+}
 
-  def validate(): Unit = {
-    Csv.read(Filename).validate()
-  }
+object Titles extends ReadOnlyData {
+  override val filename = "titles.csv"
 }
 
 
