@@ -18,10 +18,10 @@ def execute(): Unit = {
   args.toList match {
     case "add" :: "member" :: id :: Nil =>
       Members.add(id)
-    case "update" :: "member" :: id :: field :: value :: Nil =>
-      Members.update(id, Overwrite, field, value)
-    case "update" :: "member" :: id :: action :: field :: value :: Nil =>
-      Members.update(id, MultiValueFieldAction(action), field, value)
+    case "update" :: "member" :: id :: field :: Nil =>
+      Members.update(id, Overwrite, field)
+    case "update" :: "member" :: id :: action :: field :: Nil =>
+      Members.update(id, MultiValueFieldAction(action), field)
     case "remove" :: "member" :: id :: Nil =>
       Members.remove(id)
     case "validate" :: Nil =>
@@ -152,10 +152,11 @@ trait WriteableData extends OrgData {
     Csv.write(filename, newData)
   }
 
-  def update(id: String, action: FieldAction, field: String, value: String): Unit = {
-    // todo validate refs
+  def update(id: String, action: FieldAction, fieldName: String): Unit = {
     val currentData = data
-    val newData = currentData.updateFieldValue(id, action, field, value)
+    val field = currentData.header.field(fieldName)
+    val value = CmdLineUtils.promptForValue(field)
+    val newData = currentData.updateFieldValue(id, action, fieldName, value)
     Csv.write(filename, newData)
   }
 
@@ -273,7 +274,11 @@ case class Header(fields: Seq[Field]) {
   val teamRefFields = fields.filter(_.teamRef)
   val titleRefFields = fields.filter(_.titleRef)
 
-  def field(fieldName: String): Option[Field] = fields.find { _.name == fieldName }
+  def field(fieldName: String): Field = {
+    fields.find { _.name == fieldName }.getOrElse {
+      sys.error(s"No such field [$fieldName]. Choose from [${fields.map(_.name)}]")
+    }
+  }
 }
 
 case class Row(index: Int, values: Seq[String]) {
@@ -303,15 +308,9 @@ case class Csv(header: Header, rows: Seq[Row]) {
     }
   }
 
-  def field(fieldName: String): Field = {
-    header.field(fieldName).getOrElse {
-      sys.error(s"No such field [$fieldName]. Choose from [${header.fields.map(_.name)}]")
-    }
-  }
-
   // Returns the id of all matching rows
   def findRows(fieldName: String, value: String): Seq[String] = {
-    val fieldIndex = field(fieldName).index
+    val fieldIndex = header.field(fieldName).index
     rows.filter { _.value(fieldIndex).contains(value) }.map { rowId }
   }
 
@@ -325,7 +324,7 @@ case class Csv(header: Header, rows: Seq[Row]) {
 
   def updateFieldValue(rowId: String, action: FieldAction, fieldName: String, change: String): Csv = {
     val oldRow = row(rowId)
-    val fieldToUpdate = field(fieldName)
+    val fieldToUpdate = header.field(fieldName)
 
     val newValue = action.update(oldRow.value(fieldToUpdate.index), change)
     val newRowValues = oldRow.values.patch(fieldToUpdate.index, Seq(newValue), 1)
