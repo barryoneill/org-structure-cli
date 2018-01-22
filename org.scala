@@ -64,12 +64,21 @@ object CmdLineUtils {
         Teams.data.ids
       else if (field.titleRef)
         Titles.data.ids
+      else if (field.memberRef)
+        Members.data.ids // todo don't read this everytime!
       else
         Nil
 
     val value = readLine(prompt)
+
     if (validValues.nonEmpty && !validValues.contains(value)) {
-      val validValueLookup = validValues.zipWithIndex.map { vv => IndexedValue(vv._2+1, vv._1) }
+      val filteredValidValues = validValues.filter(_.toLowerCase.contains(value.toLowerCase))
+
+      val suggestedValues =
+        if (filteredValidValues.nonEmpty) filteredValidValues
+        else validValues
+
+      val validValueLookup = suggestedValues.zipWithIndex.map { vv => IndexedValue(vv._2+1, vv._1) }
 
       val indexPrompt =
         s"""
@@ -120,6 +129,7 @@ object OrgData {
     }
   }
 }
+
 trait ReadOnlyData extends OrgData {
   // Read-only data can be read once
   override lazy val data = Csv.read(filename)
@@ -143,6 +153,7 @@ trait WriteableData extends OrgData {
   }
 
   def update(id: String, action: FieldAction, field: String, value: String): Unit = {
+    // todo validate refs
     val currentData = data
     val newData = currentData.updateFieldValue(id, action, field, value)
     Csv.write(filename, newData)
