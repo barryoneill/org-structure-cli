@@ -25,9 +25,9 @@ def execute(): Unit = {
     case "remove" :: "member" :: id :: Nil =>
       Members.remove(id)
     case "validate" :: Nil =>
-      Members.data.validate()
-      Teams.data.validate()
-      Titles.data.validate()
+      Members.validate()
+      Teams.validate()
+      Titles.validate()
     case _ =>
       sys.error(CmdLineUtils.Usage)
   }
@@ -126,41 +126,67 @@ case object MultiValueRemove extends MultiValueFieldAction {
 object Members {
   private val Filename = "members.csv"
 
-  def data: Csv = Csv(Filename)
-
   def add(id: String): Unit = {
-    val newRow = data.header.fields.map { field =>
+    val currentData = Csv.read(Filename)
+    val newRow = currentData.header.fields.map { field =>
       if (field.id)
         id
       else
         CmdLineUtils.promptForValue(field)
     }
 
-    val newData = data.addRow(newRow)
+    val newData = currentData.addRow(newRow)
     Csv.write(Filename, newData)
   }
 
   def update(id: String, action: FieldAction, field: String, value: String): Unit = {
-    val newData = data.updateFieldValue(id, action, field, value)
+    val newData = Csv.read(Filename).updateFieldValue(id, action, field, value)
     Csv.write(Filename, newData)
   }
 
   def remove(id: String): Unit = {
-    val newData = data.removeRow(id)
+    val newData = Csv.read(Filename).removeRow(id)
     Csv.write(Filename, newData)
+  }
+
+  def validate(): Unit = {
+    val data = Csv.read(Filename)
+
+    data.validate()
+
+    // Check the integrity of references
+    data.rows.foreach { row =>
+      validateRefs(row, data.header.teamRefFields, Teams.data.ids)
+      validateRefs(row, data.header.titleRefFields, Titles.data.ids)
+    }
+  }
+
+  private def validateRefs(row: Row, refFields: Seq[Field], validValues: Seq[String]): Unit = {
+    refFields.foreach { refField =>
+      val ref = row.value(refField.index)
+      require(validValues.contains(ref), s"Invalid ref [$ref] in row [${row.index}]")
+    }
   }
 }
 
 object Teams {
-  private val CsvFile = "teams.csv"
+  private val Filename = "teams.csv"
 
-  def data = Csv(CsvFile)
+  val data = Csv.read(Filename)
+
+  def validate(): Unit = {
+    Csv.read(Filename).validate()
+  }
 }
 
 object Titles {
-  private val CsvFile = "titles.csv"
+  private val Filename = "titles.csv"
 
-  def data = Csv(CsvFile)
+  val data = Csv.read(Filename)
+
+  def validate(): Unit = {
+    Csv.read(Filename).validate()
+  }
 }
 
 case class Field(index: Int, name: String, multiValue: Boolean, id: Boolean, memberRef: Boolean, teamRef: Boolean, titleRef: Boolean) {
@@ -233,22 +259,9 @@ case class Csv(header: Header, rows: Seq[Row]) {
 
   // Validate the integrity of the data
   def validate(): Unit = {
-    rows.zipWithIndex.foreach {
-      case (row, index) =>
-        def validateRefs(refFields: Seq[Field], validValues: Seq[String]): Unit = {
-          refFields.foreach { refField =>
-            val ref = row.value(refField.index)
-            require(validValues.contains(ref), s"Invalid ref [$ref] in row [$index]")
-          }
-        }
-
-        // Validate that all rows have the correct number of fields
-        require(row.values.size == header.fields.size, s"Row [$index] does not have the same number of fields as the header")
-
-        // Check the integrity of references
-        validateRefs(header.memberRefFields, Members.data.ids)
-        validateRefs(header.teamRefFields, Teams.data.ids)
-        validateRefs(header.titleRefFields, Titles.data.ids)
+    // Validate that all rows have the correct number of fields
+    rows.foreach { row =>
+      require(row.values.size == header.fields.size, s"Row [${row.index}] does not have the same number of fields [${header.fields.size}] as the header")
     }
   }
 
@@ -307,7 +320,7 @@ object Csv {
     safelyWrite(filename, header +: rows)
   }
 
-  def apply(filename: String): Csv = {
+  def read(filename: String): Csv = {
     safelyRead(filename) { lines =>
       if (lines.hasNext) {
         val headerFields = parseLine(lines.next()).zipWithIndex.map {
