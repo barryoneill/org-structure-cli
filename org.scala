@@ -138,9 +138,9 @@ trait OrgData {
 
 case class ValidRefs(members: Seq[String], teams: Seq[String], titles: Seq[String]) {
   def forField(field: Field): Seq[String] = {
-    if (field.memberRef) members
-    else if (field.teamRef) teams
-    else if (field.titleRef) titles
+    if (field.isMemberRef) members
+    else if (field.isTeamRef) teams
+    else if (field.isTitleRef) titles
     else Seq.empty
   }
 }
@@ -160,9 +160,9 @@ object Titles extends OrgData {
 object OrgData {
   def add(currentData: Csv, id: String, validRefs: ValidRefs): Csv = {
     val newRow = currentData.header.fields.map { field =>
-      if (field.id) id
+      if (field.isId) id
       else
-        CmdLineUtils.promptForValue(field.name, field.multiValue, validRefs.forField(field))
+        CmdLineUtils.promptForValue(field.name, field.isMultiValue, validRefs.forField(field))
     }
 
     currentData.addRow(newRow)
@@ -170,7 +170,7 @@ object OrgData {
 
   def update(currentData: Csv, id: String, action: FieldAction, fieldName: String, validRefs: ValidRefs): Csv = {
     val field = currentData.header.field(fieldName)
-    val value = CmdLineUtils.promptForValue(field.name, field.multiValue, validRefs.forField(field))
+    val value = CmdLineUtils.promptForValue(field.name, field.isMultiValue, validRefs.forField(field))
     currentData.updateFieldValue(id, action, fieldName, value)
   }
 
@@ -184,9 +184,9 @@ object OrgData {
       row <- data.rows
       cell <- row.cells
     } {
-      require(!cell.field.memberRef || validRefs.members.contains(cell.value), s"Invalid member reference [${cell.value}] in row [${row.index}].")
-      require(!cell.field.teamRef || validRefs.teams.contains(cell.value), s"Invalid team reference [${cell.value}] in row [${row.index}].")
-      require(!cell.field.titleRef || validRefs.titles.contains(cell.value), s"Invalid title reference [${cell.value}] in row [${row.index}].")
+      require(!cell.field.isMemberRef || validRefs.members.contains(cell.value), s"Invalid member reference [${cell.value}] in row [${row.index}].")
+      require(!cell.field.isTeamRef || validRefs.teams.contains(cell.value), s"Invalid team reference [${cell.value}] in row [${row.index}].")
+      require(!cell.field.isTitleRef || validRefs.titles.contains(cell.value), s"Invalid title reference [${cell.value}] in row [${row.index}].")
     }
   }
 }
@@ -229,17 +229,17 @@ case object MultiValueRemove extends MultiValueFieldAction {
   }
 }
 
-case class Field(name: String, multiValue: Boolean, id: Boolean, memberRef: Boolean, teamRef: Boolean, titleRef: Boolean) {
+case class Field(name: String, isMultiValue: Boolean, isId: Boolean, isMemberRef: Boolean, isTeamRef: Boolean, isTitleRef: Boolean) {
   override def toString = {
-    if (multiValue)
+    if (isMultiValue)
       name + " " + Field.MultiValueIndicator
-    else if (id)
+    else if (isId)
       name + " " + Field.IdIndicator
-    else if (memberRef)
+    else if (isMemberRef)
       name + " " + Field.MemberRefIndicator
-    else if (teamRef)
+    else if (isTeamRef)
       name + " " + Field.TeamRefIndicator
-    else if (titleRef)
+    else if (isTitleRef)
       name + " " + Field.TitleRefIndicator
     else
       name
@@ -264,11 +264,11 @@ object Field {
 
     Field(
       name = fieldName,
-      multiValue = multiValueIndicatorIndex != -1,
-      id = idIndicatorIndex != -1,
-      memberRef = memberRefIndicatorIndex != -1,
-      teamRef = teamRefIndicatorIndex != -1,
-      titleRef = titleRefIndicatorIndex != -1
+      isMultiValue = multiValueIndicatorIndex != -1,
+      isId = idIndicatorIndex != -1,
+      isMemberRef = memberRefIndicatorIndex != -1,
+      isTeamRef = teamRefIndicatorIndex != -1,
+      isTitleRef = titleRefIndicatorIndex != -1
     )
   }
 }
@@ -291,7 +291,7 @@ case class Cell(field: Field, value: String) {
 
 case class Row(index: Int, cells: Seq[Cell]) {
 
-  val id = cells.toList.filter(_.field.id) match {
+  val id = cells.toList.filter(_.field.isId) match {
     case singleId :: Nil => singleId.value
     case Nil => sys.error("Row has no id field")
     case multipleIds => sys.error(s"Row has more than one id field [${multipleIds.map(_.field.name).mkString(",")}")
