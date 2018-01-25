@@ -81,6 +81,8 @@ object CmdLineUtils {
 
     val value = readLine(prompt)
 
+    if (value.contains(",")) sys.error("No commas please!")
+
     if (validValues.nonEmpty && !validValues.contains(value)) {
       val filteredValidValues = validValues.filter(_.toLowerCase.contains(value.toLowerCase))
 
