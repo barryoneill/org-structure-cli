@@ -31,9 +31,15 @@ def withMembers(f: Csv => Unit): Unit = {
 def execute(): Unit = {
   args.toList match {
     case "get" :: "member" :: id :: Nil =>
-
+      withMembers { data =>
+        Console.println(data.row(id).toJson)
+      }
     case "find" :: "member" :: field :: value :: Nil =>
-
+      withMembers { data =>
+        data.findRows(field, value).foreach { row =>
+          Console.println(row.id)
+        }
+      }
     case "add" :: "member" :: id :: Nil =>
       updatingMembers { (data, validRefs) =>
         OrgData.add(data, id, validRefs)
@@ -71,8 +77,8 @@ object CmdLineUtils {
     """
       |Usage:
       |  org add member [id]
-      |  org update member [id] [field] [value]
-      |  org update member [id] add|remove [field] [value] #For multi-value fields
+      |  org update member [id] [field]
+      |  org update member [id] add|remove [field] #For multi-value fields
       |  org remove member [id]
       |  org get member [id]
       |  org find member [field] [value]
@@ -275,7 +281,13 @@ case class Header(fields: Seq[Field]) {
   }
 }
 
-case class Cell(field: Field, value: String)
+case class Cell(field: Field, value: String) {
+  lazy val toJson =
+    s"""  {
+       |    "name": "${field.name}",
+       |    "value": "$value"
+       |  }""".stripMargin
+}
 
 case class Row(index: Int, cells: Seq[Cell]) {
 
@@ -290,6 +302,14 @@ case class Row(index: Int, cells: Seq[Cell]) {
       sys.error(s"Unknown field name [$fieldName]")
     }
   }
+
+  lazy val toJson =
+    s"""  {
+       |    "index": "$index",
+       |    "values": [
+       |${cells.map(_.toJson).mkString(",\n")}
+       |    ]
+       |  }""".stripMargin
 }
 
 object Row {
@@ -314,8 +334,8 @@ case class Csv(header: Header, rows: Seq[Row]) {
   }
 
   // Returns the id of all matching rows
-  def findRows(fieldName: String, value: String): Seq[String] = {
-    rows.filter { _.cell(fieldName).value.contains(value) }.map(_.id)
+  def findRows(fieldName: String, value: String): Seq[Row] = {
+    rows.filter { _.cell(fieldName).value.contains(value) }
   }
 
   def addRow(newRow: Seq[String]): Csv = {
