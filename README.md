@@ -36,11 +36,11 @@ To add a new member:
 
 To update a member single-value field:
 
-`org update member [id] [field] [value]`
+`org update member [id] [field]`
 
 To update a member multi-value field:
 
-`org update member [id] add|remove [field] [value]`
+`org update member [id] add|remove [field]`
 
 To remove a member:
 
