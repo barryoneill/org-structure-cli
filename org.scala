@@ -132,8 +132,12 @@ object CmdLineUtils {
 
 trait OrgData {
   def filename: String
-  def loadData: Csv = Csv.read(filename)
-  def writeData(data: Csv): Unit = Csv.write(filename, data)
+
+  val dir: String = sys.props.get("ORG_DATA_DIR").getOrElse("")
+  lazy val filePath = dir + filename
+
+  def loadData: Csv = Csv.read(filePath)
+  def writeData(data: Csv): Unit = Csv.write(filePath, data)
 }
 
 case class ValidRefs(members: Seq[String], teams: Seq[String], titles: Seq[String]) {
@@ -363,15 +367,15 @@ object Csv {
 
   private val Separator = ","
 
-  def write(filename: String, csv: Csv): Unit = {
+  def write(filePath: String, csv: Csv): Unit = {
     val header = csv.header.fields.mkString(Separator)
     val rows = csv.rows.map { _.cells.map(_.value).mkString(Separator) }
 
-    safelyWrite(filename, header +: rows)
+    safelyWrite(filePath, header +: rows)
   }
 
-  def read(filename: String): Csv = {
-    safelyRead(filename) { lines =>
+  def read(filePath: String): Csv = {
+    safelyRead(filePath) { lines =>
       if (lines.hasNext) {
         val headerLine = parseLine(lines.next())
         val headerFields = headerLine.distinct
@@ -387,22 +391,22 @@ object Csv {
         }.toSeq
         Csv(header, rows)
       } else {
-        sys.error(s"File [$filename] is missing a header")
+        sys.error(s"File [$filePath] is missing a header")
       }
     }
   }
 
   // Closes the file after use
-  private def safelyRead[T](filename: String)(f: Iterator[String] => T) = {
-    val source = io.Source.fromFile(filename)
+  private def safelyRead[T](filePath: String)(f: Iterator[String] => T) = {
+    val source = io.Source.fromFile(filePath)
     val attemptToProcess = Try { f(source.getLines()) }
     source.close()
     attemptToProcess.get
   }
 
   // Closes the file after use
-  private def safelyWrite(filename: String, rows: Seq[String]): Unit = {
-    var bw = new BufferedWriter(new FileWriter(filename, false))
+  private def safelyWrite(filePath: String, rows: Seq[String]): Unit = {
+    var bw = new BufferedWriter(new FileWriter(filePath, false))
     val attempt = Try {
       rows.foreach { row =>
         bw.write(row)
