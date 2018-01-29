@@ -6,20 +6,20 @@ import java.io.{BufferedWriter, FileWriter}
 
 import scala.util.Try
 
-Try {
+//Try {
   execute()
-}.recover {
-  case ex: Exception =>
-    Console.err.println(ex.getMessage)
-    System.exit(1)
-}
+//}.recover {
+//  case ex: Exception =>
+//    Console.err.println(ex.getMessage)
+//    System.exit(1)
+//}
 
 def updatingMembers(f: (Csv, ValidRefs) => Csv): Unit = {
-  val membersData = Members.loadData
-  val teamsData = Teams.loadData
-  val titlesData = Titles.loadData
+  val memberData = Members.loadData
+  val teamIds = if (memberData.header.fields.exists(_.isTeamRef)) Teams.loadData.ids else Nil
+  val titleIds = if (memberData.header.fields.exists(_.isTitleRef)) Titles.loadData.ids else Nil
 
-  val updatedData = f(membersData, ValidRefs(membersData.ids, teamsData.ids, titlesData.ids))
+  val updatedData = f(memberData, ValidRefs(memberData.ids, teamIds, titleIds))
 
   Members.writeData(updatedData)
 }
@@ -188,9 +188,9 @@ object OrgData {
       row <- data.rows
       cell <- row.cells
     } {
-      require(!cell.field.isMemberRef || validRefs.members.contains(cell.value), s"Invalid member reference [${cell.value}] in row [${row.index}].")
-      require(!cell.field.isTeamRef || validRefs.teams.contains(cell.value), s"Invalid team reference [${cell.value}] in row [${row.index}].")
-      require(!cell.field.isTitleRef || validRefs.titles.contains(cell.value), s"Invalid title reference [${cell.value}] in row [${row.index}].")
+      require(!cell.field.isMemberRef || validRefs.members.contains(cell.value), s"Invalid member reference [${cell.value}] in row [${row.index+1}].")
+      require(!cell.field.isTeamRef || validRefs.teams.contains(cell.value), s"Invalid team reference [${cell.value}] in row [${row.index+1}].")
+      require(!cell.field.isTitleRef || validRefs.titles.contains(cell.value), s"Invalid title reference [${cell.value}] in row [${row.index+1}].")
     }
   }
 }
@@ -208,7 +208,7 @@ case object Overwrite extends FieldAction {
 }
 
 sealed trait MultiValueFieldAction extends FieldAction {
-  val Delimiter = "|"
+  val Delimiter = '|'
 }
 
 object MultiValueFieldAction {
@@ -223,13 +223,13 @@ object MultiValueFieldAction {
 
 case object MultiValueAdd extends MultiValueFieldAction {
   override def update(currentValue: String, change: String) = {
-    (currentValue.split(Delimiter) :+ change).mkString(Delimiter)
+    (currentValue.split(Delimiter) :+ change).mkString(Delimiter.toString)
   }
 }
 
 case object MultiValueRemove extends MultiValueFieldAction {
   override def update(currentValue: String, change: String) = {
-    currentValue.split(Delimiter).filterNot(_ == change).mkString(Delimiter)
+    currentValue.split(Delimiter).filterNot(_ == change).mkString(Delimiter.toString)
   }
 }
 
@@ -264,7 +264,7 @@ object Field {
     val teamRefIndicatorIndex = header.toLowerCase.indexOf(TeamRefIndicator)
     val titleRefIndicatorIndex = header.toLowerCase.indexOf(TitleRefIndicator)
 
-    val fieldName = header.split("(").head.trim
+    val fieldName = header.split('(').head.trim
 
     Field(
       name = fieldName,
@@ -286,11 +286,7 @@ case class Header(fields: Seq[Field]) {
 }
 
 case class Cell(field: Field, value: String) {
-  lazy val toJson =
-    s"""  {
-       |    "name": "${field.name}",
-       |    "value": "$value"
-       |  }""".stripMargin
+  lazy val toJson = s""""${field.name}":"$value""""
 }
 
 case class Row(index: Int, cells: Seq[Cell]) {
@@ -307,13 +303,7 @@ case class Row(index: Int, cells: Seq[Cell]) {
     }
   }
 
-  lazy val toJson =
-    s"""  {
-       |    "index": "$index",
-       |    "values": [
-       |${cells.map(_.toJson).mkString(",\n")}
-       |    ]
-       |  }""".stripMargin
+  lazy val toJson = s"""{${cells.map(_.toJson).mkString(",")}}"""
 }
 
 object Row {
@@ -386,7 +376,7 @@ object Csv {
         val rows = lines.zipWithIndex.map {
           case (line, index) =>
             val values = parseLine(line)
-            require(values.size == headerFields.size, s"Row [$index] does not have the same number of fields as the header.")
+            require(values.size == headerFields.size, s"Row [${index+1}] does not have the same number of fields as the header.")
             Row(header, index, values)
         }.toSeq
         Csv(header, rows)
@@ -420,7 +410,7 @@ object Csv {
     attempt.get
   }
 
-  private def parseLine(line: String): Seq[String] = line.split(",").map(_.trim)
+  private def parseLine(line: String): Seq[String] = line.split(',').map(_.trim)
 }
 
 
