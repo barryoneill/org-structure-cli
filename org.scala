@@ -106,7 +106,7 @@ object CmdLineUtils {
 
     if (value.contains(",")) sys.error("No commas please!")
 
-    if (validValues.nonEmpty && !validValues.contains(value)) {
+    if (validValues.nonEmpty && !value.isEmpty && !validValues.contains(value)) {
       val filteredValidValues = validValues.filter(_.toLowerCase.contains(value.toLowerCase))
 
       val suggestedValues =
@@ -196,9 +196,9 @@ object OrgData {
       row <- data.rows
       cell <- row.cells
     } {
-      require(!cell.field.isMemberRef || validRefs.members.contains(cell.value), s"Invalid member reference [${cell.value}] in row [${row.index+1}].")
-      require(!cell.field.isTeamRef || validRefs.teams.contains(cell.value), s"Invalid team reference [${cell.value}] in row [${row.index+1}].")
-      require(!cell.field.isTitleRef || validRefs.titles.contains(cell.value), s"Invalid title reference [${cell.value}] in row [${row.index+1}].")
+      require(!cell.field.isMemberRef || cell.value.isEmpty || validRefs.members.contains(cell.value), s"Invalid member reference [${cell.value}] in row [${row.index+1}].")
+      require(!cell.field.isTeamRef || cell.value.isEmpty || validRefs.teams.contains(cell.value), s"Invalid team reference [${cell.value}] in row [${row.index+1}].")
+      require(!cell.field.isTitleRef || cell.value.isEmpty || validRefs.titles.contains(cell.value), s"Invalid title reference [${cell.value}] in row [${row.index+1}].")
     }
   }
 }
