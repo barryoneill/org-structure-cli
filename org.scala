@@ -6,6 +6,8 @@ import java.io.{BufferedWriter, FileWriter}
 
 import scala.util.Try
 
+val TestMode = sys.env.getOrElse("TEST_MODE", "0") == "1"
+
 Try {
   execute()
 }.recover {

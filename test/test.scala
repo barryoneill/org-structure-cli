@@ -208,7 +208,7 @@ def validateFileContents(testName: String, filePath: String, expected: Seq[Strin
   * @return STDOUT
   */
 def runReadCommand(command: String): String = {
-  Seq("sh", "-c", command).!!.trim
+  Seq("sh", "-c", testMode(command)).!!.trim
 }
 
 /**
@@ -218,8 +218,10 @@ def runReadCommand(command: String): String = {
   * @return The exit code
   */
 def runUpdateCommand(command: String, promptValues: Seq[String] = Nil): Int = {
-  (s"printf ${promptValues.mkString("", """\n""", """\n""")}" #| Seq("sh", "-c", command) #> new File("/dev/null")).!
+  (s"printf ${promptValues.mkString("", """\n""", """\n""")}" #| Seq("sh", "-c", testMode(command)) #> new File("/dev/null")).!
 }
+
+def testMode(command: String): String = "TEST_MODE=1 " + command
 
 // Run a test against a members 'read' command
 def testReadMembers(testName: String,
