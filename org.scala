@@ -4,9 +4,12 @@ exec scala -savecompiled "$0" "$@"
 
 import java.io.{BufferedWriter, FileWriter}
 
+import scala.sys.process._
 import scala.util.Try
 
 val TestMode = sys.env.getOrElse("TEST_MODE", "0") == "1"
+
+val OrgDataDir = sys.env.getOrElse("ORG_DATA_DIR", ".") + "/"
 
 Try {
   execute()
@@ -24,6 +27,10 @@ def updatingMembers(f: (Csv, ValidRefs) => Csv): Unit = {
   val updatedData = f(memberData, ValidRefs(memberData.ids, teamIds, titleIds))
 
   Members.writeData(updatedData)
+
+  // If we're not in test mode then commit the change with a consistent message for easy parsing afterwards
+  if (!TestMode)
+    Seq("sh", "-c", s"""cd $OrgDataDir; git commit -am "${args.mkString(" ")}"; cd - """).!
 }
 
 def withMembers(f: Csv => Unit): Unit = {
@@ -135,8 +142,7 @@ object CmdLineUtils {
 trait OrgData {
   def filename: String
 
-  val dir: String = sys.env.get("ORG_DATA_DIR").map(_ + "/").getOrElse("")
-  lazy val filePath = dir + filename
+  lazy val filePath = OrgDataDir + filename
 
   def loadData: Csv = Csv.read(filePath)
   def writeData(data: Csv): Unit = Csv.write(filePath, data)
@@ -282,7 +288,7 @@ object Field {
 case class Header(fields: Seq[Field]) {
   def field(fieldName: String): Field = {
     fields.find { _.name == fieldName }.getOrElse {
-      sys.error(s"No such field [$fieldName]. Choose from [${fields.map(_.name)}]")
+      sys.error(s"No such field [$fieldName]. Choose from [${fields.map(_.name).mkString(", ")}]")
     }
   }
 }
@@ -296,7 +302,7 @@ case class Row(index: Int, cells: Seq[Cell]) {
   val id = cells.toList.filter(_.field.isId) match {
     case singleId :: Nil => singleId.value
     case Nil => sys.error("Row has no id field")
-    case multipleIds => sys.error(s"Row has more than one id field [${multipleIds.map(_.field.name).mkString(",")}")
+    case multipleIds => sys.error(s"Row has more than one id field [${multipleIds.map(_.field.name).mkString(", ")}")
   }
 
   def cell(fieldName: String): Cell = {
