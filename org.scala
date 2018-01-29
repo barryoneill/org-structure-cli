@@ -6,13 +6,13 @@ import java.io.{BufferedWriter, FileWriter}
 
 import scala.util.Try
 
-//Try {
+Try {
   execute()
-//}.recover {
-//  case ex: Exception =>
-//    Console.err.println(ex.getMessage)
-//    System.exit(1)
-//}
+}.recover {
+  case ex: Exception =>
+    Console.err.println(ex.getMessage)
+    System.exit(1)
+}
 
 def updatingMembers(f: (Csv, ValidRefs) => Csv): Unit = {
   val memberData = Members.loadData
@@ -133,7 +133,7 @@ object CmdLineUtils {
 trait OrgData {
   def filename: String
 
-  val dir: String = sys.props.get("ORG_DATA_DIR").getOrElse("")
+  val dir: String = sys.env.get("ORG_DATA_DIR").map(_ + "/").getOrElse("")
   lazy val filePath = dir + filename
 
   def loadData: Csv = Csv.read(filePath)
