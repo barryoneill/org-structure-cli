@@ -196,9 +196,11 @@ object OrgData {
       row <- data.rows
       cell <- row.cells
     } {
-      require(!cell.field.isMemberRef || cell.value.isEmpty || validRefs.members.contains(cell.value), s"Invalid member reference [${cell.value}] in row [${row.index+1}].")
-      require(!cell.field.isTeamRef || cell.value.isEmpty || validRefs.teams.contains(cell.value), s"Invalid team reference [${cell.value}] in row [${row.index+1}].")
-      require(!cell.field.isTitleRef || cell.value.isEmpty || validRefs.titles.contains(cell.value), s"Invalid title reference [${cell.value}] in row [${row.index+1}].")
+      if (cell.field.isMemberRef && !cell.value.isEmpty && !validRefs.members.contains(cell.value)) sys.error(s"Invalid member reference [${cell.value}] in row [${row.index+1}]")
+
+      if (cell.field.isTeamRef && !cell.value.isEmpty && !validRefs.teams.contains(cell.value)) sys.error(s"Invalid team reference [${cell.value}] in row [${row.index+1}]")
+
+      if (cell.field.isTitleRef && !cell.value.isEmpty && !validRefs.titles.contains(cell.value)) sys.error(s"Invalid title reference [${cell.value}] in row [${row.index+1}]")
     }
   }
 }
@@ -286,6 +288,8 @@ object Field {
 }
 
 case class Header(fields: Seq[Field]) {
+  if (fields.count(_.isId) != 1) sys.error("Header should contain one and only one id field")
+
   def field(fieldName: String): Field = {
     fields.find { _.name == fieldName }.getOrElse {
       sys.error(s"No such field [$fieldName]. Choose from [${fields.map(_.name).mkString(", ")}]")
@@ -300,9 +304,8 @@ case class Cell(field: Field, value: String) {
 case class Row(index: Int, cells: Seq[Cell]) {
 
   val id = cells.toList.filter(_.field.isId) match {
-    case singleId :: Nil => singleId.value
-    case Nil => sys.error("Row has no id field")
-    case multipleIds => sys.error(s"Row has more than one id field [${multipleIds.map(_.field.name).mkString(", ")}")
+    case singleId :: Nil if singleId.value.nonEmpty => singleId.value
+    case _ => sys.error("Row has no id")
   }
 
   def cell(fieldName: String): Cell = {
@@ -322,11 +325,12 @@ object Row {
     Row(index, cells)
   }
 }
+
 case class Csv(header: Header, rows: Seq[Row]) {
 
   val ids: Seq[String] = rows.map(_.id).distinct
 
-  require(ids.size == rows.size, s"Ids are not unique. There are [${ids.size}] ids and [${rows.size}] rows.")
+  if (ids.size != rows.size) sys.error(s"Ids are not unique. There are [${ids.size}] ids and [${rows.size}] rows")
 
   // Returns the row with the given id
   def row(id: String): Row = {
@@ -377,14 +381,14 @@ object Csv {
       if (lines.hasNext) {
         val headerLine = parseLine(lines.next())
         val headerFields = headerLine.distinct
-        require(headerLine.size == headerFields.size, "There are duplicate names in the header.")
+        if (headerLine.size != headerFields.size) sys.error("There are duplicate names in the header")
 
         val header = Header(headerFields.map { Field(_) })
 
         val rows = lines.zipWithIndex.map {
           case (line, index) =>
             val values = parseLine(line)
-            require(values.size == headerFields.size, s"Row [${index+1}] does not have the same number of fields as the header.")
+            if (values.size != headerFields.size) sys.error(s"Row [${index+1}] does not have the same number of fields [${values.size}] as the header [${headerFields.size}]")
             Row(header, index, values)
         }.toSeq
         Csv(header, rows)
@@ -418,7 +422,16 @@ object Csv {
     attempt.get
   }
 
-  private def parseLine(line: String): Seq[String] = line.split(',').map(_.trim)
+  private def parseLine(line: String): Seq[String] = {
+    // Annoyingly, split ignores trailing commas
+    val elements =
+      if (line.endsWith(","))
+        line.split(',') :+ ""
+      else
+        line.split(',')
+
+    elements.map(_.trim)
+  }
 }
 
 
