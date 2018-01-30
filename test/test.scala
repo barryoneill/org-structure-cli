@@ -103,6 +103,36 @@ testUpdateMembers("addSimpleMemberWithEmpty",
   )
 }
 
+testUpdateMembers("addMemberRef",
+  initialMemberFileContents = Seq("Member (id),Member Ref (member)", "m1,"),
+  expectedFileContents = Seq("Member (id),Member Ref (member)", "m1,", "m2,m1")) { () =>
+
+  runUpdateCommand(
+    command = """../org.scala add member m2""",
+    promptValues = Seq("m1")
+  )
+}
+
+testUpdateMembers("addEmptyMemberRef",
+  initialMemberFileContents = Seq("Member (id),Member Ref (member)"),
+  expectedFileContents = Seq("Member (id),Member Ref (member)", "m1,")) { () =>
+
+  runUpdateCommand(
+    command = """../org.scala add member m1""",
+    promptValues = Seq("")
+  )
+}
+
+testUpdateMembers("addMemberRefWithPrompt",
+  initialMemberFileContents = Seq("Member (id),Member Ref (member)", "m1,"),
+  expectedFileContents = Seq("Member (id),Member Ref (member)", "m1,", "m2,m1")) { () =>
+
+  runUpdateCommand(
+    command = """../org.scala add member m2""",
+    promptValues = Seq("m", "1")
+  )
+}
+
 testUpdateMembers("addTeamRef",
   initialMemberFileContents = Seq("Member (id),Member Foo,Team Ref (team)"),
   initialTeamFileContents = Seq("Team (id),Team Foo", "t1,tfoo"),
