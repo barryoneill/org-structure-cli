@@ -55,9 +55,19 @@ def execute(): Unit = {
       withTeams { data =>
         Console.println(data.row(id).toJson)
       }
+    case "get" :: "team" :: Nil =>
+      withTeams { data =>
+        // Pass an empty value to force a nice error prompt for the user
+        Console.println(data.row("").toJson)
+      }
     case "get" :: "title" :: id :: Nil =>
       withTitles { data =>
         Console.println(data.row(id).toJson)
+      }
+    case "get" :: "title" :: Nil =>
+      withTitles { data =>
+        // Pass an empty value to force a nice error prompt for the user
+        Console.println(data.row("").toJson)
       }
     case "get" :: _ =>
       sys.error(CmdLineUtils.GetUsage)
@@ -321,8 +331,8 @@ case class Header(fields: Seq[Field]) {
   if (fields.count(_.isId) != 1) sys.error("Header should contain one and only one id field")
 
   def field(fieldName: String): Field = {
-    fields.find { _.name == fieldName }.getOrElse {
-      sys.error(s"No such field [$fieldName]. Choose from [${fields.map(_.name).mkString(", ")}]")
+    fields.find { _.name.equalsIgnoreCase(fieldName) }.getOrElse {
+      sys.error(s"Unknown field [$fieldName]. Choose from [${fields.map(_.name).mkString(", ")}]")
     }
   }
 }
@@ -340,7 +350,7 @@ case class Row(index: Int, cells: Seq[Cell]) {
 
   def cell(fieldName: String): Cell = {
     cells.find(_.field.name.equalsIgnoreCase(fieldName)).getOrElse {
-      sys.error(s"Unknown field name [$fieldName]. Choose from [${cells.map(_.field.name).mkString(", ")}]")
+      sys.error(s"Unknown field [$fieldName]. Choose from [${cells.map(_.field.name).mkString(", ")}]")
     }
   }
 
