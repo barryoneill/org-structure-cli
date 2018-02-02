@@ -47,9 +47,7 @@ def execute(): Unit = {
       sys.error(CmdLineUtils.GetUsage)
     case "find" :: "member" :: field :: value :: Nil =>
       withMembers { data =>
-        data.findRows(field, value).foreach { row =>
-          Console.println(row.id)
-        }
+        Console.println(data.findRows(field, value).map(_.id).mkString("[", ", ", "]"))
       }
     case "find" :: _ =>
       sys.error(CmdLineUtils.FindUsage)
@@ -314,7 +312,7 @@ case class Header(fields: Seq[Field]) {
 }
 
 case class Cell(field: Field, value: String) {
-  lazy val toJson = s""""${field.name}":"$value""""
+  lazy val toJson = s""""${field.name}": "$value""""
 }
 
 case class Row(index: Int, cells: Seq[Cell]) {
@@ -330,7 +328,7 @@ case class Row(index: Int, cells: Seq[Cell]) {
     }
   }
 
-  lazy val toJson = s"""{${cells.map(_.toJson).mkString(",")}}"""
+  lazy val toJson = s"""{ ${cells.map(_.toJson).mkString(", ")} }"""
 }
 
 object Row {

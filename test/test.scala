@@ -64,21 +64,21 @@ testValidate("validateGoodData",
 
 testReadMembers("testGetMember",
   initialMemberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
-  expected = """{"Member":"m1","Member Foo":"mfoo1"}""") { testName =>
+  expected = """{ "Member": "m1", "Member Foo": "mfoo1" }""") { testName =>
 
   runReadCommand("""../org.scala get member m1""")
 }
 
 testReadMembers("testFindMember",
   initialMemberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
-  expected = """m2""") { testName =>
+  expected = """[m2]""") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo2""")
 }
 
 testReadMembers("testFindMemberMultiple",
   initialMemberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
-  expected = "m1\nm2") { testName =>
+  expected = "[m1, m2]") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo""")
 }
