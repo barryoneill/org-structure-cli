@@ -310,7 +310,7 @@ case class Row(index: Int, cells: Seq[Cell]) {
 
   def cell(fieldName: String): Cell = {
     cells.find(_.field.name.equalsIgnoreCase(fieldName)).getOrElse {
-      sys.error(s"Unknown field name [$fieldName]")
+      sys.error(s"Unknown field name [$fieldName]. Choose from [${cells.map(_.field.name).mkString(", ")}]")
     }
   }
 
