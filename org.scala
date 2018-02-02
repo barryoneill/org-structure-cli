@@ -37,10 +37,26 @@ def withMembers(f: Csv => Unit): Unit = {
   f(Members.loadData)
 }
 
+def withTeams(f: Csv => Unit): Unit = {
+  f(Teams.loadData)
+}
+
+def withTitles(f: Csv => Unit): Unit = {
+  f(Titles.loadData)
+}
+
 def execute(): Unit = {
   args.toList match {
     case "get" :: "member" :: id :: Nil =>
       withMembers { data =>
+        Console.println(data.row(id).toJson)
+      }
+    case "get" :: "team" :: id :: Nil =>
+      withTeams { data =>
+        Console.println(data.row(id).toJson)
+      }
+    case "get" :: "title" :: id :: Nil =>
+      withTitles { data =>
         Console.println(data.row(id).toJson)
       }
     case "get" :: _ =>
@@ -98,7 +114,7 @@ object CmdLineUtils {
   val GetUsage =
     """
       |Usage:
-      |  get member [id]
+      |  get member|team|title [id]
     """.stripMargin
 
   val FindUsage =

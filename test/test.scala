@@ -10,74 +10,88 @@ import scala.util.Try
 
 
 testValidate("validateNoIdField",
-  initialMemberFileContents = Seq("Foo,Bar"),
+  memberFileContents = Seq("Foo,Bar"),
   expectedError = "Header should contain one and only one id field"
 )
 
 testValidate("validateMoreThanOneIdField",
-  initialMemberFileContents = Seq("Foo (id),Bar (id)"),
+  memberFileContents = Seq("Foo (id),Bar (id)"),
   expectedError = "Header should contain one and only one id field"
 )
 
 testValidate("validateUniqueFieldNames",
-  initialMemberFileContents = Seq("Foo,Bar,Foo"),
+  memberFileContents = Seq("Foo,Bar,Foo"),
   expectedError = "There are duplicate names in the header"
 )
 
 testValidate("validateNoId",
-  initialMemberFileContents = Seq("Foo (id),Bar",",b"),
+  memberFileContents = Seq("Foo (id),Bar",",b"),
   expectedError = "Row has no id"
 )
 
 testValidate("validateDuplicateIds",
-  initialMemberFileContents = Seq("Foo (id),Bar","foo,b","foo,c"),
+  memberFileContents = Seq("Foo (id),Bar","foo,b","foo,c"),
   expectedError = "Ids are not unique. There are [1] ids and [2] rows"
 )
 
 testValidate("validateNumberRowCells",
-  initialMemberFileContents = Seq("Foo (id),Bar","foo,b","foo,c,d"),
+  memberFileContents = Seq("Foo (id),Bar","foo,b","foo,c,d"),
   expectedError = "Row [2] does not have the same number of fields [3] as the header [2]"
 )
 
 testValidate("validateMemberRefs",
-  initialMemberFileContents = Seq("Foo (id),Foo ref (member)", "f1,", "f2,f3"),
+  memberFileContents = Seq("Foo (id),Foo ref (member)", "f1,", "f2,f3"),
   expectedError = "Invalid member reference [f3] in row [2]"
 )
 
 testValidate("validateTeamRefs",
-  initialMemberFileContents = Seq("Foo (id),Team ref (team)","f1,t2"),
-  initialTeamFileContents = Seq("Team (id)", "t1"),
+  memberFileContents = Seq("Foo (id),Team ref (team)","f1,t2"),
+  teamFileContents = Seq("Team (id)", "t1"),
   expectedError = "Invalid team reference [t2] in row [1]"
 )
 
 testValidate("validateTitleRefs",
-  initialMemberFileContents = Seq("Foo (id),Title ref (title)","f1,t2"),
-  initialTitleFileContents = Seq("Title (id)", "t1"),
+  memberFileContents = Seq("Foo (id),Title ref (title)","f1,t2"),
+  titleFileContents = Seq("Title (id)", "t1"),
   expectedError = "Invalid title reference [t2] in row [1]"
 )
 
 testValidate("validateGoodData",
-  initialMemberFileContents = Seq("Member (id),Member ref (member),Team ref (team),Title ref (title)", "m1,,team1,title1", "m2,m1,team2,title2"),
-  initialTeamFileContents = Seq("Team (id)", "team1", "team2"),
-  initialTitleFileContents = Seq("Title (id)", "title1", "title2")
+  memberFileContents = Seq("Member (id),Member ref (member),Team ref (team),Title ref (title)", "m1,,team1,title1", "m2,m1,team2,title2"),
+  teamFileContents = Seq("Team (id)", "team1", "team2"),
+  titleFileContents = Seq("Title (id)", "title1", "title2")
 )
 
-testReadMembers("testGetMember",
-  initialMemberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
+testRead("testGetMember",
+  memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
   expected = """{ "Member": "m1", "Member Foo": "mfoo1" }""") { testName =>
 
   runReadCommand("""../org.scala get member m1""")
 }
 
-testReadMembers("testFindMember",
-  initialMemberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
+testRead("testGetTeam",
+  teamFileContents = Seq("Team (id),Team Foo", "t1,tfoo1", "t2,tfoo2"),
+  expected = """{ "Team": "t1", "Team Foo": "tfoo1" }""") { testName =>
+
+  runReadCommand("""../org.scala get team t1""")
+}
+
+testRead("testGetTitle",
+  titleFileContents = Seq("Title (id),Title Foo", "t1,tfoo1", "t2,tfoo2"),
+  expected = """{ "Title": "t1", "Title Foo": "tfoo1" }""") { testName =>
+
+  runReadCommand("""../org.scala get title t1""")
+}
+
+testRead("testFindMember",
+  memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
   expected = """[m2]""") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo2""")
 }
 
-testReadMembers("testFindMemberMultiple",
-  initialMemberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
+testRead("testFindMemberMultiple",
+  memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
   expected = "[m1, m2]") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo""")
@@ -330,15 +344,15 @@ def runUpdateCommand(command: String, promptValues: Seq[String] = Nil): Int = {
 
 def testMode(command: String): String = "TEST_MODE=1 " + command
 
-// Run a test against a members 'read' command
-def testReadMembers(testName: String,
-                    initialMemberFileContents: Seq[String],
-                    initialTeamFileContents: Seq[String] = Nil,
-                    initialTitleFileContents: Seq[String] = Nil,
-                    expected: String)
-                   (runTest: String => String): Unit = {
+// Run a test against a 'read' command
+def testRead(testName: String,
+             memberFileContents: Seq[String] = Nil,
+             teamFileContents: Seq[String] = Nil,
+             titleFileContents: Seq[String] = Nil,
+             expected: String)
+            (runTest: String => String): Unit = {
   val test = Try {
-    setup(initialMemberFileContents, initialTeamFileContents, initialTitleFileContents)
+    setup(memberFileContents, teamFileContents, titleFileContents)
 
     val result = runTest(testName)
 
@@ -372,12 +386,12 @@ def testUpdateMembers(testName: String,
 }
 
 def testValidate(testName: String,
-                 initialMemberFileContents: Seq[String] = Seq("Foo (id),Bar"),
-                 initialTeamFileContents: Seq[String] = Seq("Foo (id),Bar"),
-                 initialTitleFileContents: Seq[String] = Seq("Foo (id),Bar"),
+                 memberFileContents: Seq[String] = Seq("Foo (id),Bar"),
+                 teamFileContents: Seq[String] = Seq("Foo (id),Bar"),
+                 titleFileContents: Seq[String] = Seq("Foo (id),Bar"),
                  expectedError: String = ""): Unit = {
   val test = Try {
-    setup(initialMemberFileContents, initialTeamFileContents, initialTitleFileContents)
+    setup(memberFileContents, teamFileContents, titleFileContents)
 
     val stderr = new StringBuilder
     runCommand("""../org.scala validate""", stderr = stderr)
