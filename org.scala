@@ -73,11 +73,11 @@ def execute(): Unit = {
       sys.error(CmdLineUtils.GetUsage)
     case "find" :: "member" :: field :: value :: Nil =>
       withMembers { data =>
-        Console.println(data.findRows(field, value).map(_.id).mkString("[", ", ", "]"))
+        Console.println(data.findRows(field, value).map(_.id).mkString("[ \"", "\", \"", "\" ]"))
       }
     case "find" :: "member" :: Nil =>
       withMembers { data =>
-        Console.println(data.findRows("", "").map(_.id).mkString("[", ", ", "]"))
+        Console.println(data.findRows("", "").map(_.id).mkString("[ \"", "\", \"", "\" ]"))
       }
     case "find" :: _ =>
       sys.error(CmdLineUtils.FindUsage)
