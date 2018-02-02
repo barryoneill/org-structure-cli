@@ -85,12 +85,12 @@ object CmdLineUtils {
   val Usage =
     """
       |Usage:
-      |  org add member [id]
-      |  org update member [id] [field]
-      |  org update member [id] add|remove [field] #For multi-value fields
-      |  org remove member [id]
-      |  org get member [id]
-      |  org find member [field] [value]
+      |  add member [id]
+      |  update member [id] [field]
+      |  update member [id] add|remove [field] #For multi-value fields
+      |  remove member [id]
+      |  get member [id]
+      |  find member [field] [value]
     """.stripMargin
 
   private case class IndexedValue(index: Int, value: String)
