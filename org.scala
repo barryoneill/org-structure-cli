@@ -75,6 +75,10 @@ def execute(): Unit = {
       withMembers { data =>
         Console.println(data.findRows(field, value).map(_.id).mkString("[", ", ", "]"))
       }
+    case "find" :: "member" :: Nil =>
+      withMembers { data =>
+        Console.println(data.findRows("", "").map(_.id).mkString("[", ", ", "]"))
+      }
     case "find" :: _ =>
       sys.error(CmdLineUtils.FindUsage)
     case "add" :: "member" :: id :: Nil =>
@@ -376,7 +380,7 @@ case class Csv(header: Header, rows: Seq[Row]) {
   def row(id: String): Row = {
     rows.find { _.id.equalsIgnoreCase(id) }.getOrElse {
       val chooseFrom = if (ids.size < 20) s" Choose from [${ids.sorted.mkString(", ")}]." else ""
-      sys.error(s"Unknown id [$id].$chooseFrom")
+      sys.error(s"Unknown Id [$id].$chooseFrom")
     }
   }
 
