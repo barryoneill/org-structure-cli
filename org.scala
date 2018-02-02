@@ -309,7 +309,7 @@ case class Row(index: Int, cells: Seq[Cell]) {
   }
 
   def cell(fieldName: String): Cell = {
-    cells.find(_.field.name == fieldName).getOrElse {
+    cells.find(_.field.name.equalsIgnoreCase(fieldName)).getOrElse {
       sys.error(s"Unknown field name [$fieldName]")
     }
   }
@@ -334,14 +334,14 @@ case class Csv(header: Header, rows: Seq[Row]) {
 
   // Returns the row with the given id
   def row(id: String): Row = {
-    rows.find { _.id == id }.getOrElse {
+    rows.find { _.id.equalsIgnoreCase(id) }.getOrElse {
       sys.error(s"Unknown id [$id]")
     }
   }
 
   // Returns the id of all matching rows
   def findRows(fieldName: String, value: String): Seq[Row] = {
-    rows.filter { _.cell(fieldName).value.contains(value) }
+    rows.filter { _.cell(fieldName).value.toLowerCase.contains(value.toLowerCase) }
   }
 
   def addRow(newRow: Seq[String]): Csv = {
