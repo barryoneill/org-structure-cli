@@ -43,12 +43,16 @@ def execute(): Unit = {
       withMembers { data =>
         Console.println(data.row(id).toJson)
       }
+    case "get" :: _ =>
+      sys.error(CmdLineUtils.GetUsage)
     case "find" :: "member" :: field :: value :: Nil =>
       withMembers { data =>
         data.findRows(field, value).foreach { row =>
           Console.println(row.id)
         }
       }
+    case "find" :: _ =>
+      sys.error(CmdLineUtils.FindUsage)
     case "add" :: "member" :: id :: Nil =>
       updatingMembers { (data, validRefs) =>
         OrgData.add(data, id, validRefs)
@@ -85,11 +89,23 @@ object CmdLineUtils {
   val Usage =
     """
       |Usage:
+      |  get member [id]
+      |  find member [field] [value]
       |  add member [id]
       |  update member [id] [field]
       |  update member [id] add|remove [field] #For multi-value fields
       |  remove member [id]
+    """.stripMargin
+
+  val GetUsage =
+    """
+      |Usage:
       |  get member [id]
+    """.stripMargin
+
+  val FindUsage =
+    """
+      |Usage:
       |  find member [field] [value]
     """.stripMargin
 
