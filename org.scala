@@ -370,12 +370,13 @@ case class Csv(header: Header, rows: Seq[Row]) {
 
   val ids: Seq[String] = rows.map(_.id).distinct
 
-  if (ids.size != rows.size) sys.error(s"Ids are not unique. There are [${ids.size}] ids and [${rows.size}] rows")
+  if (ids.size != rows.size) sys.error(s"Ids are not unique. There are [${ids.size}] ids and [${rows.size}] rows.")
 
   // Returns the row with the given id
   def row(id: String): Row = {
     rows.find { _.id.equalsIgnoreCase(id) }.getOrElse {
-      sys.error(s"Unknown id [$id]")
+      val chooseFrom = if (ids.size < 20) s" Choose from [${ids.sorted.mkString(", ")}]." else ""
+      sys.error(s"Unknown id [$id].$chooseFrom")
     }
   }
 

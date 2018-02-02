@@ -31,7 +31,7 @@ testValidate("validateNoId",
 
 testValidate("validateDuplicateIds",
   memberFileContents = Seq("Foo (id),Bar","foo,b","foo,c"),
-  expectedError = "Ids are not unique. There are [1] ids and [2] rows"
+  expectedError = "Ids are not unique. There are [1] ids and [2] rows."
 )
 
 testValidate("validateNumberRowCells",
