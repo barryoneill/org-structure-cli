@@ -430,6 +430,7 @@ object Csv {
         val headerLine = parseLine(lines.next())
         val headerFields = headerLine.distinct
         if (headerLine.size != headerFields.size) sys.error("There are duplicate names in the header")
+        if (headerFields.exists(_.isEmpty)) sys.error("The header has empty fields")
 
         val header = Header(headerFields.map { Field(_) })
 

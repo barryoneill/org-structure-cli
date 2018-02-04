@@ -19,6 +19,11 @@ testValidate("validateMoreThanOneIdField",
   expectedError = "Header should contain one and only one id field"
 )
 
+testValidate("validateEmptyHeaderField",
+  memberFileContents = Seq("Foo (id),"),
+  expectedError = "The header has empty fields"
+)
+
 testValidate("validateUniqueFieldNames",
   memberFileContents = Seq("Foo,Bar,Foo"),
   expectedError = "There are duplicate names in the header"
