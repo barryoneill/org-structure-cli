@@ -332,7 +332,10 @@ object Field {
 }
 
 case class Header(fields: Seq[Field]) {
-  if (fields.count(_.isId) != 1) sys.error("Header should contain one and only one id field")
+  val idField = fields.toList.filter(_.isId) match {
+    case singleId :: Nil => singleId
+    case _ => sys.error("Header should contain one and only one id field")
+  }
 
   def field(fieldName: String): Field = {
     fields.find { _.name.equalsIgnoreCase(fieldName) }.getOrElse {
@@ -380,7 +383,7 @@ case class Csv(header: Header, rows: Seq[Row]) {
   def row(id: String): Row = {
     rows.find { _.id.equalsIgnoreCase(id) }.getOrElse {
       val chooseFrom = if (ids.size < 20) s" Choose from [${ids.sorted.mkString(", ")}]." else ""
-      sys.error(s"Unknown Id [$id].$chooseFrom")
+      sys.error(s"Unknown ${header.idField.name} [$id].$chooseFrom")
     }
   }
 
