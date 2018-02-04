@@ -85,14 +85,14 @@ testRead("testGetTitle",
 
 testRead("testFindMember",
   memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
-  expected = """[m2]""") { testName =>
+  expected = """[ "m2" ]""") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo2""")
 }
 
 testRead("testFindMemberMultiple",
   memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
-  expected = "[m1, m2]") { testName =>
+  expected = """[ "m1", "m2" ]""") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo""")
 }
