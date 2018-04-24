@@ -345,7 +345,10 @@ case class Header(fields: Seq[Field]) {
 }
 
 case class Cell(field: Field, value: String) {
-  lazy val toJson = s""""${field.name}": "$value""""
+  lazy val toJson = {
+    val jsonFriendlyValue = value.replaceAllLiterally("\"", "")
+    s""""${field.name}": "$jsonFriendlyValue""""
+  }
 }
 
 case class Row(index: Int, cells: Seq[Cell]) {

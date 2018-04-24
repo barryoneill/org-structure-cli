@@ -92,6 +92,13 @@ testRead("testGetTitle",
   runReadCommand("""../org.scala get title t1""")
 }
 
+testRead("testGetWithCommas",
+  memberFileContents = Seq("Member (id),Member Foo", "m1,\"mfoo1,2\"", "m2,mfoo2"),
+  expected = """{ "Member": "m1", "Member Foo": "mfoo1,2" }""") { testName =>
+
+  runReadCommand("""../org.scala get member m1""")
+}
+
 testRead("testFindMember",
   memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
   expected = """[ "m2" ]""") { testName =>
