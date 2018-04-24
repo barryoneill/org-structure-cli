@@ -54,5 +54,6 @@ To find a member using a substring match on a field value:
 
 `org find member [field] [value]`
 
-Each action will create a new commit with a consistent, easy to parse name. This allows
-changes to be published or other actions to be taken via GitHub webhooks.
+Actions that update your files expect that ORG_DATA_DIR is a Git registered repo. They will create a new commit
+with a consistent, easy to parse name. This allows actions to be taken via GitHub webhooks. E.g. Publishing changes
+to Slack.
