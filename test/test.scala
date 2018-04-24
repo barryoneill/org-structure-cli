@@ -44,6 +44,10 @@ testValidate("validateNumberRowCells",
   expectedError = "Row [2] does not have the same number of fields [3] as the header [2]"
 )
 
+testValidate("validateCellContentsWithCommas",
+  memberFileContents = Seq("Foo (id),Bar","foo,\"b,c\"")
+)
+
 testValidate("validateMemberRefs",
   memberFileContents = Seq("Foo (id),Foo ref (member)", "f1,", "f2,f3"),
   expectedError = "Invalid member reference [f3] in row [2]"

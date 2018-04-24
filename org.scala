@@ -472,12 +472,15 @@ object Csv {
   }
 
   private def parseLine(line: String): Seq[String] = {
+    // Have to support fields wrapped in quotes that contain commas
+    val CommaRegex = ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)"
+
     // Annoyingly, split ignores trailing commas
     val elements =
       if (line.endsWith(","))
-        line.split(',') :+ ""
+        line.split(CommaRegex) :+ ""
       else
-        line.split(',')
+        line.split(CommaRegex)
 
     elements.map(_.trim)
   }
