@@ -101,16 +101,37 @@ testRead("testGetWithCommas",
 
 testRead("testFindMember",
   memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
-  expected = """[ "m2" ]""") { testName =>
+  expected = """[ { "Member": "m2", "Member Foo": "mfoo2" } ]""") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo2""")
 }
 
 testRead("testFindMemberMultiple",
   memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
-  expected = """[ "m1", "m2" ]""") { testName =>
+  expected = """[ { "Member": "m1", "Member Foo": "mfoo1" }, { "Member": "m2", "Member Foo": "mfoo2" } ]""") { testName =>
 
   runReadCommand("""../org.scala find member "Member Foo" mfoo""")
+}
+
+testRead("testSearchMemberNoResults",
+  memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
+  expected = """[  ]""") { testName =>
+
+  runReadCommand("""../org.scala member bar""")
+}
+
+testRead("testSearchMemberSingleResult",
+  memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
+  expected = """[ { "Member": "m2", "Member Foo": "mfoo2" } ]""") { testName =>
+
+  runReadCommand("""../org.scala member mfoo2""")
+}
+
+testRead("testSearchMemberMultipleResults",
+  memberFileContents = Seq("Member (id),Member Foo", "m1,mfoo1", "m2,mfoo2"),
+  expected = """[ { "Member": "m1", "Member Foo": "mfoo1" }, { "Member": "m2", "Member Foo": "mfoo2" } ]""") { testName =>
+
+  runReadCommand("""../org.scala member mfoo""")
 }
 
 testUpdateMembers("addSimpleMember",

@@ -19,6 +19,21 @@ Try {
     System.exit(1)
 }
 
+def searchData(data: Csv, search: String): Unit = {
+  val results = data.header.fields.flatMap { field =>
+    data.findRows(field.name, search)
+  }
+  Console.println(results.map(_.toJson).mkString("[ ", ", ", " ]"))
+}
+
+def findDataById(data: Csv, id: String): Unit = {
+  Console.println(data.row(id).toJson)
+}
+
+def findDataByField(data: Csv, field: String, value: String): Unit = {
+  Console.println(data.findRows(field, value).map(_.toJson).mkString("[ ", ", ", " ]"))
+}
+
 def updatingMembers(f: (Csv, ValidRefs) => Csv): Unit = {
   val memberData = Members.loadData
   val teamIds = if (memberData.header.fields.exists(_.isTeamRef)) Teams.loadData.ids else Nil
@@ -33,54 +48,22 @@ def updatingMembers(f: (Csv, ValidRefs) => Csv): Unit = {
     Seq("sh", "-c", s"""cd $OrgDataDir; git commit -am "${args.mkString(" ")}"; cd - """).!
 }
 
-def withMembers(f: Csv => Unit): Unit = {
-  f(Members.loadData)
-}
-
-def withTeams(f: Csv => Unit): Unit = {
-  f(Teams.loadData)
-}
-
-def withTitles(f: Csv => Unit): Unit = {
-  f(Titles.loadData)
-}
-
 def execute(): Unit = {
   args.toList match {
+    case "member" :: search if search.nonEmpty =>
+      searchData(Members.loadData, search.mkString(" "))
+    case "team" :: search if search.nonEmpty =>
+      searchData(Teams.loadData, search.mkString(" "))
+    case "title" :: search if search.nonEmpty =>
+      searchData(Titles.loadData, search.mkString(" "))
     case "get" :: "member" :: id :: Nil =>
-      withMembers { data =>
-        Console.println(data.row(id).toJson)
-      }
+      findDataById(Members.loadData, id)
     case "get" :: "team" :: id :: Nil =>
-      withTeams { data =>
-        Console.println(data.row(id).toJson)
-      }
-    case "get" :: "team" :: Nil =>
-      withTeams { data =>
-        // Pass an empty value to force a nice error prompt for the user
-        Console.println(data.row("").toJson)
-      }
+      findDataById(Teams.loadData, id)
     case "get" :: "title" :: id :: Nil =>
-      withTitles { data =>
-        Console.println(data.row(id).toJson)
-      }
-    case "get" :: "title" :: Nil =>
-      withTitles { data =>
-        // Pass an empty value to force a nice error prompt for the user
-        Console.println(data.row("").toJson)
-      }
-    case "get" :: _ =>
-      sys.error(CmdLineUtils.GetUsage)
+      findDataById(Titles.loadData, id)
     case "find" :: "member" :: field :: value :: Nil =>
-      withMembers { data =>
-        Console.println(data.findRows(field, value).map(_.id).mkString("[ \"", "\", \"", "\" ]"))
-      }
-    case "find" :: "member" :: Nil =>
-      withMembers { data =>
-        Console.println(data.findRows("", "").map(_.id).mkString("[ \"", "\", \"", "\" ]"))
-      }
-    case "find" :: _ =>
-      sys.error(CmdLineUtils.FindUsage)
+      findDataByField(Members.loadData, field, value)
     case "add" :: "member" :: id :: Nil =>
       updatingMembers { (data, validRefs) =>
         OrgData.add(data, id, validRefs)
@@ -117,24 +100,14 @@ object CmdLineUtils {
   val Usage =
     """
       |Usage:
-      |  get member [id]
+      |  member|team|title [search]
+      |  get member|team|title [id]
       |  find member [field] [value]
       |  add member [id]
       |  update member [id] [field]
       |  update member [id] add|remove [field] #For multi-value fields
       |  remove member [id]
-    """.stripMargin
-
-  val GetUsage =
-    """
-      |Usage:
-      |  get member|team|title [id]
-    """.stripMargin
-
-  val FindUsage =
-    """
-      |Usage:
-      |  find member [field] [value]
+      |  validate
     """.stripMargin
 
   private case class IndexedValue(index: Int, value: String)
