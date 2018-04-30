@@ -44,8 +44,12 @@ testValidate("validateNumberRowCells",
   expectedError = "Row [2] does not have the same number of fields [3] as the header [2]"
 )
 
-testValidate("validateCellContentsWithCommas",
+testValidate("validateCellContentsWithQuotes",
   memberFileContents = Seq("Foo (id),Bar","foo,\"b,c\"")
+)
+
+testValidate("validateCellContentsWithTrailingCommas",
+  memberFileContents = Seq("Foo (id),Bar,Baz","foo,,")
 )
 
 testValidate("validateMemberRefs",

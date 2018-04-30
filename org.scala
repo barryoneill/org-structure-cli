@@ -459,11 +459,8 @@ object Csv {
     val CommaRegex = ",(?=([^\"]*\"[^\"]*\")*[^\"]*$)"
 
     // Annoyingly, split ignores trailing commas
-    val elements =
-      if (line.endsWith(","))
-        line.split(CommaRegex) :+ ""
-      else
-        line.split(CommaRegex)
+    val numTrailingCommas = line.length - line.reverse.dropWhile(_ == ',').length
+    val elements = line.split(CommaRegex) ++ Array.fill(numTrailingCommas)("")
 
     elements.map(_.trim)
   }
