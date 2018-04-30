@@ -112,14 +112,9 @@ object CmdLineUtils {
   val Usage =
     """
       |Usage:
-      |  member|team|title [search] # E.g. title principal; member john foo
-      |  get member|team|title [id] # E.g. get member john foo; get team bar
-      |  find member [field] [value]
-      |  add member [id]
-      |  update member [id] [field]
-      |  update member [id] add|remove [field] #For multi-value fields
-      |  remove member [id]
-      |  validate
+      |  member|team|title [search] -- E.g. title principal; member john foo
+      |  get member|team|title [id] -- E.g. get member john foo; get team bar
+      |  find member [field] [value] -- E.g. find member github foobar
     """.stripMargin
 
   private case class IndexedValue(index: Int, value: String)
