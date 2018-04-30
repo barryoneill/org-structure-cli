@@ -52,34 +52,45 @@ def execute(): Unit = {
   args.toList match {
     case "member" :: search if search.nonEmpty =>
       searchData(Members.loadData, search.mkString(" "))
+
     case "team" :: search if search.nonEmpty =>
       searchData(Teams.loadData, search.mkString(" "))
+
     case "title" :: search if search.nonEmpty =>
       searchData(Titles.loadData, search.mkString(" "))
-    case "get" :: "member" :: id :: Nil =>
-      findDataById(Members.loadData, id)
-    case "get" :: "team" :: id :: Nil =>
-      findDataById(Teams.loadData, id)
-    case "get" :: "title" :: id :: Nil =>
-      findDataById(Titles.loadData, id)
-    case "find" :: "member" :: field :: value :: Nil =>
-      findDataByField(Members.loadData, field, value)
-    case "add" :: "member" :: id :: Nil =>
+
+    case "get" :: "member" :: id if id.nonEmpty =>
+      findDataById(Members.loadData, id.mkString(" "))
+
+    case "get" :: "team" :: id if id.nonEmpty =>
+      findDataById(Teams.loadData, id.mkString(" "))
+
+    case "get" :: "title" :: id if id.nonEmpty =>
+      findDataById(Titles.loadData, id.mkString(" "))
+
+    case "find" :: "member" :: field :: value if value.nonEmpty =>
+      findDataByField(Members.loadData, field, value.mkString(" "))
+
+    case "add" :: "member" :: id if id.nonEmpty =>
       updatingMembers { (data, validRefs) =>
-        OrgData.add(data, id, validRefs)
+        OrgData.add(data, id.mkString(" "), validRefs)
       }
+
     case "update" :: "member" :: id :: field :: Nil =>
       updatingMembers { (data, validRefs) =>
         OrgData.update(data, id, Overwrite, field, validRefs)
       }
+
     case "update" :: "member" :: id :: action :: field :: Nil =>
       updatingMembers { (data, validRefs) =>
         OrgData.update(data, id, MultiValueFieldAction(action), field, validRefs)
       }
-    case "remove" :: "member" :: id :: Nil =>
+
+    case "remove" :: "member" :: id =>
       updatingMembers { (data, validRefs) =>
-        OrgData.remove(data, id)
+        OrgData.remove(data, id.mkString(" "))
       }
+
     case "validate" :: Nil =>
       val membersData = Members.loadData
       val teamsData = Teams.loadData
@@ -89,6 +100,7 @@ def execute(): Unit = {
       OrgData.validate(membersData, validRefs)
       OrgData.validate(teamsData, validRefs)
       OrgData.validate(titlesData, validRefs)
+
     case _ =>
       sys.error(CmdLineUtils.Usage)
   }
@@ -100,8 +112,8 @@ object CmdLineUtils {
   val Usage =
     """
       |Usage:
-      |  member|team|title [search]
-      |  get member|team|title [id]
+      |  member|team|title [search] # E.g. title principal; member john foo
+      |  get member|team|title [id] # E.g. get member john foo; get team bar
       |  find member [field] [value]
       |  add member [id]
       |  update member [id] [field]
