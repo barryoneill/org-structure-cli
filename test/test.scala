@@ -21,12 +21,12 @@ testValidate("validateMoreThanOneIdField",
 
 testValidate("validateEmptyHeaderField",
   memberFileContents = Seq("Foo (id),"),
-  expectedError = "The header has empty fields"
+  expectedError = "members.csv: The header has empty fields"
 )
 
 testValidate("validateUniqueFieldNames",
   memberFileContents = Seq("Foo,Bar,Foo"),
-  expectedError = "There are duplicate names in the header"
+  expectedError = "members.csv: There are duplicate names in the header"
 )
 
 testValidate("validateNoId",
@@ -36,12 +36,12 @@ testValidate("validateNoId",
 
 testValidate("validateDuplicateIds",
   memberFileContents = Seq("Foo (id),Bar","foo,b","foo,c"),
-  expectedError = "Ids are not unique. There are [1] ids and [2] rows."
+  expectedError = "members.csv: Ids are not unique. There are [1] ids and [2] rows."
 )
 
 testValidate("validateNumberRowCells",
   memberFileContents = Seq("Foo (id),Bar","foo,b","foo,c,d"),
-  expectedError = "Row [2] does not have the same number of fields [3] as the header [2]"
+  expectedError = "members.csv: Row [2] does not have the same number of fields [3] as the header [2]"
 )
 
 testValidate("validateCellContentsWithQuotes",
@@ -54,19 +54,19 @@ testValidate("validateCellContentsWithTrailingCommas",
 
 testValidate("validateMemberRefs",
   memberFileContents = Seq("Foo (id),Foo ref (member)", "f1,", "f2,f3"),
-  expectedError = "Invalid member reference [f3] in row [2]"
+  expectedError = "members.csv: Invalid member reference [f3] in row [2]"
 )
 
 testValidate("validateTeamRefs",
   memberFileContents = Seq("Foo (id),Team ref (team)","f1,t2"),
   teamFileContents = Seq("Team (id)", "t1"),
-  expectedError = "Invalid team reference [t2] in row [1]"
+  expectedError = "members.csv: Invalid team reference [t2] in row [1]"
 )
 
 testValidate("validateTitleRefs",
   memberFileContents = Seq("Foo (id),Title ref (title)","f1,t2"),
   titleFileContents = Seq("Title (id)", "t1"),
-  expectedError = "Invalid title reference [t2] in row [1]"
+  expectedError = "members.csv: Invalid title reference [t2] in row [1]"
 )
 
 testValidate("validateGoodData",

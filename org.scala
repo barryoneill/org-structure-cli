@@ -220,11 +220,11 @@ object OrgData {
       row <- data.rows
       cell <- row.cells
     } {
-      if (cell.field.isMemberRef && !cell.value.isEmpty && !validRefs.members.contains(cell.value)) sys.error(s"Invalid member reference [${cell.value}] in row [${row.index+1}]")
+      if (cell.field.isMemberRef && !cell.value.isEmpty && !validRefs.members.contains(cell.value)) sys.error(s"${data.filename}: Invalid member reference [${cell.value}] in row [${row.index+1}]")
 
-      if (cell.field.isTeamRef && !cell.value.isEmpty && !validRefs.teams.contains(cell.value)) sys.error(s"Invalid team reference [${cell.value}] in row [${row.index+1}]")
+      if (cell.field.isTeamRef && !cell.value.isEmpty && !validRefs.teams.contains(cell.value)) sys.error(s"${data.filename}: Invalid team reference [${cell.value}] in row [${row.index+1}]")
 
-      if (cell.field.isTitleRef && !cell.value.isEmpty && !validRefs.titles.contains(cell.value)) sys.error(s"Invalid title reference [${cell.value}] in row [${row.index+1}]")
+      if (cell.field.isTitleRef && !cell.value.isEmpty && !validRefs.titles.contains(cell.value)) sys.error(s"${data.filename}: Invalid title reference [${cell.value}] in row [${row.index+1}]")
     }
   }
 }
@@ -356,11 +356,11 @@ object Row {
   }
 }
 
-case class Csv(header: Header, rows: Seq[Row]) {
+case class Csv(filename: String, header: Header, rows: Seq[Row]) {
 
   val ids: Seq[String] = rows.map(_.id).distinct
 
-  if (ids.size != rows.size) sys.error(s"Ids are not unique. There are [${ids.size}] ids and [${rows.size}] rows.")
+  if (ids.size != rows.size) sys.error(s"$filename: Ids are not unique. There are [${ids.size}] ids and [${rows.size}] rows.")
 
   // Returns the row with the given id
   def row(id: String): Row = {
@@ -408,24 +408,29 @@ object Csv {
   }
 
   def read(filePath: String): Csv = {
+    val filename = {
+      val lastSlash = filePath.lastIndexOf('/') + 1
+      filePath.substring(lastSlash)
+    }
+
     safelyRead(filePath) { lines =>
       if (lines.hasNext) {
         val headerLine = parseLine(lines.next())
         val headerFields = headerLine.distinct
-        if (headerLine.size != headerFields.size) sys.error("There are duplicate names in the header")
-        if (headerFields.exists(_.isEmpty)) sys.error("The header has empty fields")
+        if (headerLine.size != headerFields.size) sys.error(s"$filename: There are duplicate names in the header")
+        if (headerFields.exists(_.isEmpty)) sys.error(s"$filename: The header has empty fields")
 
         val header = Header(headerFields.map { Field(_) })
 
         val rows = lines.zipWithIndex.map {
           case (line, index) =>
             val values = parseLine(line)
-            if (values.size != headerFields.size) sys.error(s"Row [${index+1}] does not have the same number of fields [${values.size}] as the header [${headerFields.size}]")
+            if (values.size != headerFields.size) sys.error(s"$filename: Row [${index+1}] does not have the same number of fields [${values.size}] as the header [${headerFields.size}]")
             Row(header, index, values)
         }.toSeq
-        Csv(header, rows)
+        Csv(filename, header, rows)
       } else {
-        sys.error(s"File [$filePath] is missing a header")
+        sys.error(s"$filename: Missing header")
       }
     }
   }
