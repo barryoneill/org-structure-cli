@@ -19,6 +19,26 @@ Try {
     System.exit(1)
 }
 
+case class MemberKey(name: String)
+
+case class Member(name: MemberKey, email: Seq[String], github: Option[String], title: TitleKey, manager: Option[MemberKey],
+                  team: Option[TeamKey])
+
+case class TitleKey(title: String, group: String)
+
+case class Title(key: TitleKey, level: Int, track: String, analogy: Option[String],
+                 teamSize: Option[String], scope: Option[String],
+                 complexity: Option[String], accountability: Option[String],
+                 sphereOfInfluence: Option[String],
+                 supervision: Option[String],
+                 experience: Option[String],
+                 knowledge: Option[String])
+
+case class TeamKey(name: String)
+
+case class Team(name: TeamKey, lead: String, pmo: Option[String], product: Option[String])
+
+
 def searchData(data: Csv, search: String): Unit = {
   val results = data.header.fields.flatMap { field =>
     data.findRows(field.name, search)
@@ -35,9 +55,9 @@ def findDataByField(data: Csv, field: String, value: String): Unit = {
 }
 
 def updatingMembers(f: (Csv, ValidRefs) => Csv): Unit = {
-  val memberData = Members.loadData
-  val teamIds = if (memberData.header.fields.exists(_.isTeamRef)) Teams.loadData.ids else Nil
-  val titleIds = if (memberData.header.fields.exists(_.isTitleRef)) Titles.loadData.ids else Nil
+  val memberData = Members.loadCsv
+  val teamIds = if (memberData.header.fields.exists(_.isTeamRef)) Teams.loadCsv.ids else Nil
+  val titleIds = if (memberData.header.fields.exists(_.isTitleRef)) Titles.loadCsv.ids else Nil
 
   val updatedData = f(memberData, ValidRefs(memberData.ids, teamIds, titleIds))
 
@@ -51,25 +71,25 @@ def updatingMembers(f: (Csv, ValidRefs) => Csv): Unit = {
 def execute(): Unit = {
   args.toList match {
     case "member" :: search if search.nonEmpty =>
-      searchData(Members.loadData, search.mkString(" "))
+      searchData(Members.loadCsv, search.mkString(" "))
 
     case "team" :: search if search.nonEmpty =>
-      searchData(Teams.loadData, search.mkString(" "))
+      searchData(Teams.loadCsv, search.mkString(" "))
 
     case "title" :: search if search.nonEmpty =>
-      searchData(Titles.loadData, search.mkString(" "))
+      searchData(Titles.loadCsv, search.mkString(" "))
 
     case "get" :: "member" :: id if id.nonEmpty =>
-      findDataById(Members.loadData, id.mkString(" "))
+      findDataById(Members.loadCsv, id.mkString(" "))
 
     case "get" :: "team" :: id if id.nonEmpty =>
-      findDataById(Teams.loadData, id.mkString(" "))
+      findDataById(Teams.loadCsv, id.mkString(" "))
 
     case "get" :: "title" :: id if id.nonEmpty =>
-      findDataById(Titles.loadData, id.mkString(" "))
+      findDataById(Titles.loadCsv, id.mkString(" "))
 
     case "find" :: "member" :: field :: value if value.nonEmpty =>
-      findDataByField(Members.loadData, field, value.mkString(" "))
+      findDataByField(Members.loadCsv, field, value.mkString(" "))
 
     case "add" :: "member" :: id if id.nonEmpty =>
       updatingMembers { (data, validRefs) =>
@@ -95,11 +115,10 @@ def execute(): Unit = {
       val membersData = Members.loadData
       val teamsData = Teams.loadData
       val titlesData = Titles.loadData
-      val validRefs = ValidRefs(membersData.ids, teamsData.ids, titlesData.ids)
 
-      OrgData.validate(membersData, validRefs)
-      OrgData.validate(teamsData, validRefs)
-      OrgData.validate(titlesData, validRefs)
+      OrgData.validate(membersData, titlesData.map(_.key), teamsData.map(_.name))
+      OrgData.validate(teamsData, membersData.map(_.name))
+      OrgData.validate(titlesData)
 
     case _ =>
       sys.error(CmdLineUtils.Usage)
@@ -168,7 +187,14 @@ trait OrgData {
 
   lazy val filePath = OrgDataDir + filename
 
-  def loadData: Csv = Csv.read(filePath)
+  protected def nonEmptyStringOrOption(value: String): Option[String] = {
+    value match {
+      case "" => None
+      case v => Some(v)
+    }
+  }
+
+  def loadCsv: Csv = Csv.read(filePath)
   def writeData(data: Csv): Unit = Csv.write(filePath, data)
 }
 
@@ -183,14 +209,64 @@ case class ValidRefs(members: Seq[String], teams: Seq[String], titles: Seq[Strin
 
 object Members extends OrgData {
   override val filename = "members.csv"
+
+  private def parseRow(row: Row): Member = {
+    Member(MemberKey(row.cell("name").value),
+      row.cell("email").value.split("|").toSeq,
+      nonEmptyStringOrOption(row.cell("github").value),
+      TitleKey(row.cell("title").value,
+        row.cell("group").value)
+      ,
+      nonEmptyStringOrOption(row.cell("manager").value).map(MemberKey.apply),
+      nonEmptyStringOrOption(row.cell("team").value).map(TeamKey.apply))
+  }
+
+  def loadData: Seq[Member] = {
+    loadCsv.rows.map(parseRow)
+  }
 }
 
 object Teams extends OrgData {
   override val filename = "teams.csv"
+
+  private def parseRow(row: Row): Team = {
+    Team(
+      TeamKey(row.cell("name").value),
+      row.cell("lead").value,
+      nonEmptyStringOrOption(row.cell("pmo").value),
+      nonEmptyStringOrOption(row.cell("product").value)
+    )
+  }
+
+  def loadData: Seq[Team] = {
+    loadCsv.rows.map(parseRow)
+  }
+
 }
 
 object Titles extends OrgData {
   override val filename = "titles.csv"
+
+  private def parseRow(row: Row): Title = {
+    Title(
+      TitleKey(row.cell("Title").value, row.cell("Group").value),
+      row.cell("Level").value.toInt,
+      row.cell("Track").value,
+      nonEmptyStringOrOption(row.cell("Analogy").value),
+      nonEmptyStringOrOption(row.cell("Team Size").value),
+      nonEmptyStringOrOption(row.cell("Scope").value),
+      nonEmptyStringOrOption(row.cell("Complexity").value),
+        nonEmptyStringOrOption(row.cell("Accountability").value),
+      nonEmptyStringOrOption(row.cell("Sphere of Influence").value),
+        nonEmptyStringOrOption(row.cell("supervision").value),
+        nonEmptyStringOrOption(row.cell("experience").value),
+        nonEmptyStringOrOption(row.cell("knowledge").value)
+    )
+  }
+
+  def loadData: Seq[Title] = {
+    loadCsv.rows.map(parseRow)
+  }
 }
 
 object OrgData {
@@ -214,19 +290,54 @@ object OrgData {
     currentData.removeRow(id)
   }
 
-  def validate(data: Csv, validRefs: ValidRefs): Unit = {
-    // Check the integrity of references
+  def validate(members: Seq[Member], titles: Seq[TitleKey], teams: Seq[TeamKey]): Unit = {
+    // Validate titles
     for {
-      row <- data.rows
-      cell <- row.cells
+      (member, index) <- members.zipWithIndex
     } {
-      if (cell.field.isMemberRef && !cell.value.isEmpty && !validRefs.members.contains(cell.value)) sys.error(s"${data.filename}: Invalid member reference [${cell.value}] in row [${row.index+1}]")
+      if (!titles.contains(member.title)) {
+        sys.error(s"members.csv: Invalid title reference ${member.title} in row ${index + 1}, member ${member.name}")
+      }
+    }
 
-      if (cell.field.isTeamRef && !cell.value.isEmpty && !validRefs.teams.contains(cell.value)) sys.error(s"${data.filename}: Invalid team reference [${cell.value}] in row [${row.index+1}]")
-
-      if (cell.field.isTitleRef && !cell.value.isEmpty && !validRefs.titles.contains(cell.value)) sys.error(s"${data.filename}: Invalid title reference [${cell.value}] in row [${row.index+1}]")
+    // Validate teams
+    for {
+      (member, index) <- members.zipWithIndex
+    } {
+      if (member.team.isDefined && !teams.contains(member.team.get)) {
+        sys.error(s"members.csv: Invalid team reference ${member.team} in row ${index + 1}, member ${member.name}")
+      }
     }
   }
+
+  def validate(titles: Seq[Title]): Unit = {
+    // Titles should be unique within a group
+    val titleGroups = titles.groupBy(_.key.group)
+    titleGroups.foreach {
+      case (group, titles) =>
+        val nonUniqueTitles = titles.groupBy(_.key.title).filter(_._2.length > 1)
+        if (!nonUniqueTitles.isEmpty) {
+          sys.error(s"Non unique titles exist for group $group: ${nonUniqueTitles.map(_._1).mkString(", ")}")
+        }
+    }
+  }
+
+  def validate(teams: Seq[Team], members: Seq[MemberKey]): Unit = {
+    for {
+      (team, index) <- teams.zipWithIndex
+    } {
+      if (!members.contains(team.lead)) {
+        sys.error(s"Invalid lead ${team.lead} for team ${team.name}, row ${index + 1}")
+      }
+      if (team.pmo.isDefined && !members.contains(team.pmo.get)) {
+        sys.error(s"Invalid pmo ${team.pmo} for team ${team.name}, row ${index + 1}")
+      }
+      if (team.product.isDefined && !members.contains(team.product.get)) {
+        sys.error(s"Invalid product manager ${team.product} for team ${team.name}, row ${index + 1}")
+      }
+    }
+  }
+
 }
 
 
@@ -359,8 +470,6 @@ object Row {
 case class Csv(filename: String, header: Header, rows: Seq[Row]) {
 
   val ids: Seq[String] = rows.map(_.id).distinct
-
-  if (ids.size != rows.size) sys.error(s"$filename: Ids are not unique. There are [${ids.size}] ids and [${rows.size}] rows.")
 
   // Returns the row with the given id
   def row(id: String): Row = {
