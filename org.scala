@@ -26,7 +26,7 @@ case class Member(name: MemberKey, email: Seq[String], github: Option[String], t
 
 case class TitleKey(title: String, group: String)
 
-case class Title(key: TitleKey, level: Int, track: String, analogy: Option[String],
+case class Title(key: TitleKey, level: BigDecimal, track: String, analogy: Option[String],
                  teamSize: Option[String], scope: Option[String],
                  complexity: Option[String], accountability: Option[String],
                  sphereOfInfluence: Option[String],
@@ -36,7 +36,7 @@ case class Title(key: TitleKey, level: Int, track: String, analogy: Option[Strin
 
 case class TeamKey(name: String)
 
-case class Team(name: TeamKey, lead: String, pmo: Option[String], product: Option[String])
+case class Team(name: TeamKey, lead: MemberKey, pmo: Option[MemberKey], product: Option[MemberKey])
 
 
 def searchData(data: Csv, search: String): Unit = {
@@ -232,9 +232,9 @@ object Teams extends OrgData {
   private def parseRow(row: Row): Team = {
     Team(
       TeamKey(row.cell("name").value),
-      row.cell("lead").value,
-      nonEmptyStringOrOption(row.cell("pmo").value),
-      nonEmptyStringOrOption(row.cell("product").value)
+      MemberKey(row.cell("lead").value),
+      nonEmptyStringOrOption(row.cell("pmo").value).map(MemberKey.apply),
+      nonEmptyStringOrOption(row.cell("product").value).map(MemberKey.apply)
     )
   }
 
@@ -250,7 +250,7 @@ object Titles extends OrgData {
   private def parseRow(row: Row): Title = {
     Title(
       TitleKey(row.cell("Title").value, row.cell("Group").value),
-      row.cell("Level").value.toInt,
+      BigDecimal(row.cell("Level").value),
       row.cell("Track").value,
       nonEmptyStringOrOption(row.cell("Analogy").value),
       nonEmptyStringOrOption(row.cell("Team Size").value),
@@ -547,15 +547,17 @@ object Csv {
   // Closes the file after use
   private def safelyRead[T](filePath: String)(f: Iterator[String] => T) = {
     val source = io.Source.fromFile(filePath)
-    val attemptToProcess = Try { f(source.getLines()) }
-    source.close()
-    attemptToProcess.get
+    try {
+      f(source.getLines())
+    } finally {
+      //source.close()
+    }
   }
 
   // Closes the file after use
   private def safelyWrite(filePath: String, rows: Seq[String]): Unit = {
-    var bw = new BufferedWriter(new FileWriter(filePath, false))
-    val attempt = Try {
+    val bw = new BufferedWriter(new FileWriter(filePath, false))
+    Try {
       rows.foreach { row =>
         bw.write(row)
         bw.newLine()
@@ -564,8 +566,6 @@ object Csv {
     }
 
     Try { bw.close() }
-
-    attempt.get
   }
 
   private def parseLine(line: String): Seq[String] = {
