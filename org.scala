@@ -26,13 +26,7 @@ case class Member(name: MemberKey, email: Seq[String], github: Option[String], t
 
 case class TitleKey(title: String, group: String)
 
-case class Title(key: TitleKey, level: BigDecimal, track: String, analogy: Option[String],
-                 teamSize: Option[String], scope: Option[String],
-                 complexity: Option[String], accountability: Option[String],
-                 sphereOfInfluence: Option[String],
-                 supervision: Option[String],
-                 experience: Option[String],
-                 knowledge: Option[String])
+case class Title(key: TitleKey, level: BigDecimal, track: String)
 
 case class TeamKey(name: String)
 
@@ -116,8 +110,10 @@ def execute(): Unit = {
       val teamsData = Teams.loadData
       val titlesData = Titles.loadData
 
+      val teamsCsv = Teams.loadCsv
+
       OrgData.validate(membersData, titlesData.map(_.key), teamsData.map(_.name))
-      OrgData.validate(teamsData, membersData.map(_.name))
+      OrgData.validateTeams(teamsCsv, membersData.map(_.name))
       OrgData.validate(titlesData)
 
     case _ =>
@@ -251,16 +247,7 @@ object Titles extends OrgData {
     Title(
       TitleKey(row.cell("Title").value, row.cell("Group").value),
       BigDecimal(row.cell("Level").value),
-      row.cell("Track").value,
-      nonEmptyStringOrOption(row.cell("Analogy").value),
-      nonEmptyStringOrOption(row.cell("Team Size").value),
-      nonEmptyStringOrOption(row.cell("Scope").value),
-      nonEmptyStringOrOption(row.cell("Complexity").value),
-        nonEmptyStringOrOption(row.cell("Accountability").value),
-      nonEmptyStringOrOption(row.cell("Sphere of Influence").value),
-        nonEmptyStringOrOption(row.cell("supervision").value),
-        nonEmptyStringOrOption(row.cell("experience").value),
-        nonEmptyStringOrOption(row.cell("knowledge").value)
+      row.cell("Track").value
     )
   }
 
@@ -322,19 +309,13 @@ object OrgData {
     }
   }
 
-  def validate(teams: Seq[Team], members: Seq[MemberKey]): Unit = {
+  def validateTeams(data: Csv, members: Seq[MemberKey]): Unit = {
+    // Check the integrity of references
     for {
-      (team, index) <- teams.zipWithIndex
+      row <- data.rows
+      cell <- row.cells
     } {
-      if (!members.contains(team.lead)) {
-        sys.error(s"Invalid lead ${team.lead} for team ${team.name}, row ${index + 1}")
-      }
-      if (team.pmo.isDefined && !members.contains(team.pmo.get)) {
-        sys.error(s"Invalid pmo ${team.pmo} for team ${team.name}, row ${index + 1}")
-      }
-      if (team.product.isDefined && !members.contains(team.product.get)) {
-        sys.error(s"Invalid product manager ${team.product} for team ${team.name}, row ${index + 1}")
-      }
+      if (cell.field.isMemberRef && !cell.value.isEmpty && !members.contains(MemberKey(cell.value))) sys.error(s"${data.filename}: Invalid member reference [${cell.value}] in row [${row.index+1}]")
     }
   }
 
@@ -536,7 +517,7 @@ object Csv {
             val values = parseLine(line)
             if (values.size != headerFields.size) sys.error(s"$filename: Row [${index+1}] does not have the same number of fields [${values.size}] as the header [${headerFields.size}]")
             Row(header, index, values)
-        }.toSeq
+        }.toList
         Csv(filename, header, rows)
       } else {
         sys.error(s"$filename: Missing header")
@@ -550,7 +531,7 @@ object Csv {
     try {
       f(source.getLines())
     } finally {
-      //source.close()
+      source.close()
     }
   }
 
