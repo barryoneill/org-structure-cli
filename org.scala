@@ -21,7 +21,7 @@ Try {
 
 case class MemberKey(name: String)
 
-case class Member(name: MemberKey, email: Seq[String], github: Option[String], title: TitleKey, manager: Option[MemberKey],
+case class Member(name: MemberKey, title: TitleKey, manager: Option[MemberKey],
                   team: Option[TeamKey])
 
 case class TitleKey(title: String, group: String)
@@ -206,8 +206,6 @@ object Members extends OrgData {
 
   private def parseRow(row: Row): Member = {
     Member(MemberKey(row.cell("name").value),
-      row.cell("email").value.split("|").toSeq,
-      nonEmptyStringOrOption(row.cell("github").value),
       TitleKey(row.cell("title").value,
         row.cell("group").value)
       ,
