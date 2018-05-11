@@ -30,7 +30,7 @@ case class Title(key: TitleKey, level: BigDecimal, track: String)
 
 case class TeamKey(name: String)
 
-case class Team(name: TeamKey, lead: MemberKey, pmo: Option[MemberKey], product: Option[MemberKey])
+case class Team(name: TeamKey, members: Seq[MemberKey])
 
 
 def searchData(data: Csv, search: String): Unit = {
@@ -110,10 +110,8 @@ def execute(): Unit = {
       val teamsData = Teams.loadData
       val titlesData = Titles.loadData
 
-      val teamsCsv = Teams.loadCsv
-
       OrgData.validate(membersData, titlesData.map(_.key), teamsData.map(_.name))
-      OrgData.validateTeams(teamsCsv, membersData.map(_.name))
+      OrgData.validate(teamsData, membersData.map(_.name))
       OrgData.validate(titlesData)
 
     case _ =>
@@ -228,9 +226,9 @@ object Teams extends OrgData {
   private def parseRow(row: Row): Team = {
     Team(
       TeamKey(row.cell("name").value),
-      MemberKey(row.cell("lead").value),
-      nonEmptyStringOrOption(row.cell("pmo").value).map(MemberKey.apply),
-      nonEmptyStringOrOption(row.cell("product").value).map(MemberKey.apply)
+      row.cells.collect {
+        case cell if cell.field.isMemberRef => MemberKey(cell.value)
+      }
     )
   }
 
@@ -309,13 +307,18 @@ object OrgData {
     }
   }
 
-  def validateTeams(data: Csv, members: Seq[MemberKey]): Unit = {
+  def validate(teams: Seq[Team], members: Seq[MemberKey]): Unit = {
     // Check the integrity of references
     for {
-      row <- data.rows
-      cell <- row.cells
+      (team, index) <- teams.zipWithIndex
     } {
-      if (cell.field.isMemberRef && !cell.value.isEmpty && !members.contains(MemberKey(cell.value))) sys.error(s"${data.filename}: Invalid member reference [${cell.value}] in row [${row.index+1}]")
+      for {
+        member <- team.members
+      } {
+        if (!member.name.isEmpty && !members.contains(member)) {
+          sys.error(s"Team member does not exist ${member.name} for team ${team.name}, row ${index + 1}")
+        }
+      }
     }
   }
 
