@@ -31,6 +31,31 @@ def findDataByField(data: Csv, field: String, value: String): Unit = {
   Console.println(data.findRows(field, value).map(_.toJson).mkString("[ ", ", ", " ]"))
 }
 
+def getOrgStructure(data: Csv, id: String): Unit = {
+
+  case class TreeRow(rowData: Row, children: Seq[TreeRow] = Seq()) {
+    lazy val reportName = rowData.cell("Name").value
+    lazy val managerName = rowData.cell("Manager").value
+    lazy val toJson: String = s"""{ ${rowData.cells.map(_.toJson).mkString(", ")}, "reports" : [${children.map(_.toJson).mkString(", ")}] }""".stripMargin
+  }
+
+  val rootPerson = TreeRow(data.row(id))
+
+  val managerReports = Members.loadData.rows
+    .map(r => TreeRow(r))
+    .map(r => (r.managerName, r)).toList
+    .groupBy(_._1)
+    .mapValues(_.map(_._2))
+
+  def buildReportTree(personRow: TreeRow): TreeRow = {
+    val reports = managerReports.getOrElse(personRow.reportName, Seq())
+    TreeRow(personRow.rowData, reports.map(reportRow => buildReportTree(reportRow)))
+  }
+
+  Console.println(buildReportTree(rootPerson).toJson)
+
+}
+
 def list(data: Csv): Unit = {
   Console.println(data.rows.sortBy(_.id).map(_.toJson).mkString("[ ", ", ", " ]"))
 }
@@ -80,6 +105,9 @@ def execute(): Unit = {
     case "find" :: "members" :: field :: value if value.nonEmpty =>
       findDataByField(Members.loadData, field, value.mkString(" "))
 
+    case "structure" :: name if name.nonEmpty =>
+      getOrgStructure(Members.loadData, name.mkString(" "))
+
     case "validate" :: Nil =>
       val membersData = Members.loadData
       val teamsData = Teams.loadData
@@ -102,6 +130,7 @@ object CmdLineUtils {
       |  members|teams|titles [search] -- E.g. titles principal; members john foo
       |  get member|team|title [id] -- E.g. get member john foo; get team bar
       |  find members [field] [value] -- E.g. find members github foobar
+      |  structure [name] -- E.g. structure john doe
     """.stripMargin
 }
 
