@@ -180,6 +180,55 @@ testRead("testSearchMemberMultipleResults",
   runReadCommand("""../org.scala members mfoo""")
 }
 
+def SimpsonNuclearPlantMembers = Seq("Name (id), Manager",
+  "Canary M. Burns, ", //  http://simpsons.wikia.com/wiki/Canary_M._Burns
+  "Monty Burns, Canary M. Burns",
+  "Waylon Smithers, Monty Burns",
+  "Carl Carlson, Waylon Smithers",
+  "Lenny Leonard, Waylon Smithers",
+  "Frank Grimes, Waylon Smithers",
+  "Homer Simpson, Lenny Leonard",
+  "Karl, Homer Simpson")
+
+def fmtStructureNode(name: String, manager: String, reports: String) =
+  s"""{ "Name": "$name", "Manager": "$manager", "reports": [$reports] }"""
+
+testRead("testStructureLeaf",
+  memberFileContents = SimpsonNuclearPlantMembers,
+  expected = fmtStructureNode("Karl", "Homer Simpson", "")) { testName =>
+
+  runReadCommand("""../org.scala structure "Karl" """)
+}
+
+testRead("testStructureSingleChild",
+  memberFileContents = SimpsonNuclearPlantMembers,
+  expected =
+    fmtStructureNode("Homer Simpson", "Lenny Leonard",
+      fmtStructureNode("Karl", "Homer Simpson", ""))) { testName =>
+
+  runReadCommand("""../org.scala structure "Homer Simpson" """)
+}
+
+testRead("testStructureFullTree",
+  memberFileContents = SimpsonNuclearPlantMembers,
+  expected =
+    fmtStructureNode("Canary M. Burns", "",
+      fmtStructureNode("Monty Burns", "Canary M. Burns",
+        fmtStructureNode("Waylon Smithers", "Monty Burns",
+          Seq(
+            fmtStructureNode("Carl Carlson", "Waylon Smithers",""),
+            fmtStructureNode("Lenny Leonard", "Waylon Smithers",
+              fmtStructureNode("Homer Simpson", "Lenny Leonard",
+                fmtStructureNode("Karl", "Homer Simpson","")))
+            ,
+            fmtStructureNode("Frank Grimes", "Waylon Smithers","")
+          ).mkString(", ")))
+    )) { testName =>
+
+  runReadCommand("""../org.scala structure "Canary M. Burns" """)
+}
+
+
 def writeFile(filePath: String, rows: Seq[String]): Unit = {
   var bw = new BufferedWriter(new FileWriter(filePath, false))
   rows.foreach { row =>

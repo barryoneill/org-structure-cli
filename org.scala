@@ -31,12 +31,12 @@ def findDataByField(data: Csv, field: String, value: String): Unit = {
   Console.println(data.findRows(field, value).map(_.toJson).mkString("[ ", ", ", " ]"))
 }
 
-def getOrgStructure(data: Csv, id: String): Unit = {
+def printOrgStructure(data: Csv, id: String): Unit = {
 
   case class TreeRow(rowData: Row, children: Seq[TreeRow] = Seq()) {
     lazy val reportName = rowData.cell("Name").value
     lazy val managerName = rowData.cell("Manager").value
-    lazy val toJson: String = s"""{ ${rowData.cells.map(_.toJson).mkString(", ")}, "reports" : [${children.map(_.toJson).mkString(", ")}] }""".stripMargin
+    lazy val toJson: String = s"""{ ${rowData.cells.map(_.toJson).mkString(", ")}, "reports": [${children.map(_.toJson).mkString(", ")}] }""".stripMargin
   }
 
   val rootPerson = TreeRow(data.row(id))
@@ -106,7 +106,7 @@ def execute(): Unit = {
       findDataByField(Members.loadData, field, value.mkString(" "))
 
     case "structure" :: name if name.nonEmpty =>
-      getOrgStructure(Members.loadData, name.mkString(" "))
+      printOrgStructure(Members.loadData, name.mkString(" "))
 
     case "validate" :: Nil =>
       val membersData = Members.loadData
